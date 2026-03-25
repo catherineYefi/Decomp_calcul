@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { HelpCircle } from 'lucide-react';
 
 interface TooltipProps {
   range?: string;
@@ -77,7 +78,7 @@ export function Tooltip({ range, typical, hint }: TooltipProps) {
       onMouseEnter={() => setShow(true)}
       onMouseLeave={() => setShow(false)}
     >
-      <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)', flexShrink: 0 }}>❓</span>
+      <HelpCircle size={13} style={{ color: 'rgba(255,255,255,0.3)', flexShrink: 0 }} />
       {tooltip}
     </span>
   );
