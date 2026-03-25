@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef } from 'react';
-import { Target, TrendingUp, Zap, Download, RotateCcw, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
+import { Target, TrendingUp, TrendingDown, Zap, Download, RotateCcw, ChevronDown, ChevronUp, AlertTriangle, Check } from 'lucide-react';
 import type { ChannelId, ScenarioKey, ChannelScenarios } from './types';
 import { CHANNELS, CHANNEL_MAP, getDefaultParams, applyScenario } from './channels';
 import { ParameterInput } from './components/ParameterInput';
@@ -8,10 +8,10 @@ import { MetricsGrid } from './components/MetricsGrid';
 import { formatRub, formatNum } from './utils';
 import './index.css';
 
-const SCENARIO_META: { key: ScenarioKey; label: string; emoji: string }[] = [
-  { key: 'pessimist', label: 'Пессимист', emoji: '📉' },
-  { key: 'realist',   label: 'Реалист',   emoji: '🎯' },
-  { key: 'optimist',  label: 'Оптимист',  emoji: '🚀' },
+const SCENARIO_META: { key: ScenarioKey; label: string; icon: React.ComponentType<{size?: number}> }[] = [
+  { key: 'pessimist', label: 'Пессимист', icon: TrendingDown },
+  { key: 'realist',   label: 'Реалист',   icon: Target },
+  { key: 'optimist',  label: 'Оптимист',  icon: TrendingUp },
 ];
 
 function buildInitialScenarios(channelId: ChannelId): ChannelScenarios {
@@ -211,7 +211,7 @@ export default function App() {
                 {!goalReached && goal > 0 && (
                   <span style={{ color: 'var(--danger)' }}>не хватает {formatRub(goal - totalNetProfit, true)}</span>
                 )}
-                {goalReached && <span style={{ color: 'var(--success)' }}>✓ Цель достигнута!</span>}
+                {goalReached && <span style={{ color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 4 }}><Check size={12} /> Цель достигнута!</span>}
               </div>
               {results.length > 0 && (
                 <div style={{ marginTop: 14, borderTop: '1px solid var(--border)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -274,7 +274,7 @@ export default function App() {
                           </span>
                         </div>
                         {isSelected && (
-                          <span style={{ fontSize: 10, color: ch.color }}>✓ Выбран</span>
+                          <span style={{ fontSize: 10, color: ch.color, display: 'flex', alignItems: 'center', gap: 4 }}><Check size={10} /> Выбран</span>
                         )}
                       </button>
                     );
@@ -298,7 +298,7 @@ export default function App() {
                 className={`stab ${activeScenario === sc.key ? `active-${sc.key}` : 'inactive'}`}
                 onClick={() => setActiveScenario(sc.key)}
               >
-                {sc.emoji} {sc.label}
+                <sc.icon size={14} /> {sc.label}
               </button>
             ))}
             <button
@@ -474,7 +474,7 @@ export default function App() {
                   <span style={{ color: 'var(--text2)' }}>Прогресс к цели {formatRub(goal, true)}</span>
                   <span style={{ fontWeight: 700, color: goalReached ? 'var(--success)' : 'var(--text)' }}>
                     {goalProgress.toFixed(0)}%
-                    {goalReached ? ' ✓ Достигнута!' : ` (не хватает ${formatRub(goal - totalNetProfit, true)})`}
+                    {goalReached ? <><Check size={10} /> Достигнута!</> : ` (не хватает ${formatRub(goal - totalNetProfit, true)})`}
                   </span>
                 </div>
                 <div className="progress-track" style={{ height: 10 }}>
