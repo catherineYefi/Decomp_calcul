@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef } from 'react';
-import { Target, TrendingUp, TrendingDown, Zap, Download, RotateCcw, ChevronDown, ChevronUp, AlertTriangle, Check, LucideIcon } from 'lucide-react';
+import { Target, TrendingUp, Zap, Download, RotateCcw, ChevronDown, ChevronUp, AlertTriangle, ArrowRight, BookOpen, BarChart2 } from 'lucide-react';
 import type { ChannelId, ScenarioKey, ChannelScenarios } from './types';
 import { CHANNELS, CHANNEL_MAP, getDefaultParams, applyScenario } from './channels';
 import { ParameterInput } from './components/ParameterInput';
@@ -8,11 +8,105 @@ import { MetricsGrid } from './components/MetricsGrid';
 import { formatRub, formatNum } from './utils';
 import './index.css';
 
-const SCENARIO_META: { key: ScenarioKey; label: string; icon: LucideIcon }[] = [
-  { key: 'pessimist', label: 'Пессимист', icon: TrendingDown },
-  { key: 'realist',   label: 'Реалист',   icon: Target },
-  { key: 'optimist',  label: 'Оптимист',  icon: TrendingUp },
+const SCENARIO_META: { key: ScenarioKey; label: string; emoji: string }[] = [
+  { key: 'pessimist', label: 'Пессимист', emoji: '📉' },
+  { key: 'realist',   label: 'Реалист',   emoji: '🎯' },
+  { key: 'optimist',  label: 'Оптимист',  emoji: '🚀' },
 ];
+
+const WELCOME_STEPS = [
+  {
+    icon: Target,
+    title: 'Декомпозитор целей',
+    text: 'Инструмент ULTIMA для декомпозиции финансовой цели по каналам привлечения клиентов.',
+  },
+  {
+    icon: BookOpen,
+    title: 'Как это работает',
+    text: 'Введи целевую прибыль → выбери 1–3 канала → заполни параметры. Калькулятор покажет сколько нужно показов, лидов и клиентов.',
+  },
+  {
+    icon: BarChart2,
+    title: 'Три сценария',
+    text: 'Для каждого канала — пессимист, реалист, оптимист. Сравни результаты и найди слабое звено в воронке.',
+  },
+];
+
+function WelcomeModal({ onClose }: { onClose: () => void }) {
+  const [step, setStep] = useState(0);
+  const isLast = step === WELCOME_STEPS.length - 1;
+  const { icon: Icon, title, text } = WELCOME_STEPS[step];
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 1000,
+      background: 'rgba(7,13,31,0.85)',
+      backdropFilter: 'blur(8px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 24,
+    }}>
+      <div style={{
+        background: 'rgba(255,255,255,0.05)',
+        border: '1px solid rgba(0,229,255,0.2)',
+        borderRadius: 20,
+        padding: '32px 32px 28px',
+        width: '100%',
+        maxWidth: 380,
+        textAlign: 'center',
+        boxShadow: '0 24px 80px rgba(0,0,0,0.5)',
+      }}>
+        <div style={{
+          width: 52, height: 52,
+          borderRadius: 14,
+          background: 'linear-gradient(135deg, #00e5ff22, #e91e8c22)',
+          border: '1px solid rgba(0,229,255,0.25)',
+          margin: '0 auto 18px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Icon size={22} style={{ color: '#00e5ff' }} />
+        </div>
+
+        <div style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 10, letterSpacing: '-0.02em' }}>
+          {title}
+        </div>
+        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', lineHeight: 1.7, marginBottom: 24, minHeight: 56 }}>
+          {text}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 22 }}>
+          {WELCOME_STEPS.map((_, i) => (
+            <div key={i} onClick={() => setStep(i)} style={{
+              height: 5, borderRadius: 3, cursor: 'pointer',
+              width: i === step ? 20 : 6,
+              background: i === step ? '#00e5ff' : 'rgba(255,255,255,0.15)',
+              transition: 'all 0.2s',
+            }} />
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          {!isLast && (
+            <button
+              onClick={onClose}
+              className="btn btn-ghost"
+              style={{ flex: 1, justifyContent: 'center', fontSize: 13 }}
+            >
+              Пропустить
+            </button>
+          )}
+          <button
+            onClick={() => isLast ? onClose() : setStep(s => s + 1)}
+            className="btn btn-primary"
+            style={{ flex: isLast ? 1 : 1.5, justifyContent: 'center', fontSize: 13 }}
+          >
+            {isLast ? 'Начать работу' : 'Далее'}
+            <ArrowRight size={14} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function buildInitialScenarios(channelId: ChannelId): ChannelScenarios {
   const base = getDefaultParams(channelId);
@@ -24,19 +118,26 @@ function buildInitialScenarios(channelId: ChannelId): ChannelScenarios {
 }
 
 export default function App() {
+  const [showWelcome, setShowWelcome] = useState(() => {
+    try { return !localStorage.getItem('ultima_decomp_welcomed'); } catch { return true; }
+  });
+
+  const handleCloseWelcome = () => {
+    try { localStorage.setItem('ultima_decomp_welcomed', '1'); } catch { /* ignore */ }
+    setShowWelcome(false);
+  };
+
   const [goal, setGoal] = useState<number>(1000000);
-  const [mode] = useState<'forecast' | 'from_goal'>('forecast');
   const [selectedChannels, setSelectedChannels] = useState<ChannelId[]>(['ppc']);
   const [activeScenario, setActiveScenario] = useState<ScenarioKey>('realist');
   const [channelParams, setChannelParams] = useState<Record<string, ChannelScenarios>>(() => ({
     ppc: buildInitialScenarios('ppc'),
   }));
+  // First channel open, rest collapsed by default
   const [expandedChannels, setExpandedChannels] = useState<Record<string, boolean>>({ ppc: true });
   const [activeChannelScenario, setActiveChannelScenario] = useState<Record<string, ScenarioKey>>({});
   const printRef = useRef<HTMLDivElement>(null);
-  void mode;
 
-  // Toggle channel selection
   const toggleChannel = useCallback((id: ChannelId) => {
     setSelectedChannels(prev => {
       if (prev.includes(id)) {
@@ -49,12 +150,12 @@ export default function App() {
         ...p,
         [id]: p[id] || buildInitialScenarios(id),
       }));
-      setExpandedChannels(e => ({ ...e, [id]: true }));
+      // New channels start collapsed
+      setExpandedChannels(e => ({ ...e, [id]: false }));
       return next;
     });
   }, []);
 
-  // Update a single param for a channel + scenario
   const updateParam = useCallback((channelId: string, scenario: ScenarioKey, paramId: string, value: number) => {
     setChannelParams(prev => ({
       ...prev,
@@ -71,7 +172,6 @@ export default function App() {
   const getChannelScenario = (chId: string): ScenarioKey =>
     activeChannelScenario[chId] ?? activeScenario;
 
-  // Calculate results for each selected channel
   const results = useMemo(() => {
     return selectedChannels.map(chId => {
       const chDef = CHANNEL_MAP[chId];
@@ -86,7 +186,6 @@ export default function App() {
   const goalProgress = goal > 0 ? Math.min(100, (totalNetProfit / goal) * 100) : 0;
   const goalReached = totalNetProfit >= goal;
 
-  // PDF export
   const handleExport = async () => {
     const el = printRef.current;
     if (!el) return;
@@ -115,6 +214,8 @@ export default function App() {
 
   return (
     <div style={{ minHeight: '100vh', padding: '0 0 60px' }}>
+      {showWelcome && <WelcomeModal onClose={handleCloseWelcome} />}
+
       {/* HEADER */}
       <header style={{
         padding: '16px 24px',
@@ -140,15 +241,23 @@ export default function App() {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            className="btn btn-ghost"
+            onClick={() => setShowWelcome(true)}
+            style={{ fontSize: 12, padding: '6px 14px' }}
+            title="Показать инструкцию"
+          >
+            <BookOpen size={13} /> Инструкция
+          </button>
           <button className="btn btn-ghost" onClick={handleExport} style={{ fontSize: 12, padding: '6px 14px' }}>
-            <Download size={13} /> Экспорт PDF
+            <Download size={13} /> PDF
           </button>
         </div>
       </header>
 
       <div ref={printRef} style={{ maxWidth: 1200, margin: '0 auto', padding: '32px 24px 0' }}>
 
-        {/* ── SECTION 1: GOAL ─────────────────────────────────────────────────── */}
+        {/* ── SECTION 1: GOAL ─────────────────────────────────────────────── */}
         <section style={{ marginBottom: 40 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 24 }}>
             <div style={{ flex: '1 1 320px' }}>
@@ -209,9 +318,9 @@ export default function App() {
               <div style={{ fontSize: 11, color: 'var(--text2)', display: 'flex', justifyContent: 'space-between' }}>
                 <span>{goalProgress.toFixed(0)}% от цели</span>
                 {!goalReached && goal > 0 && (
-                  <span style={{ color: 'var(--danger)' }}>не хватает {formatRub(goal - totalNetProfit, true)}</span>
+                  <span style={{ color: 'var(--danger)' }}>−{formatRub(goal - totalNetProfit, true)}</span>
                 )}
-                {goalReached && <span style={{ color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 4 }}><Check size={12} /> Цель достигнута!</span>}
+                {goalReached && <span style={{ color: 'var(--success)' }}>✓ Достигнута!</span>}
               </div>
               {results.length > 0 && (
                 <div style={{ marginTop: 14, borderTop: '1px solid var(--border)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -221,10 +330,7 @@ export default function App() {
                         <span style={{ width: 6, height: 6, borderRadius: '50%', background: chDef.color, display: 'inline-block', flexShrink: 0 }} />
                         <span style={{ color: 'var(--text2)' }}>{chDef.shortName}</span>
                       </span>
-                      <span style={{
-                        fontWeight: 600,
-                        color: result.netProfit >= 0 ? 'var(--text)' : 'var(--danger)',
-                      }}>
+                      <span style={{ fontWeight: 600, color: result.netProfit >= 0 ? 'var(--text)' : 'var(--danger)' }}>
                         {formatRub(result.netProfit, true)}
                       </span>
                     </div>
@@ -235,7 +341,7 @@ export default function App() {
           </div>
         </section>
 
-        {/* ── SECTION 2: CHANNEL PICKER ─────────────────────────────────────── */}
+        {/* ── SECTION 2: CHANNEL PICKER ─────────────────────────────────── */}
         <section style={{ marginBottom: 40 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
             <Zap size={16} style={{ color: 'var(--cyan)' }} />
@@ -274,7 +380,7 @@ export default function App() {
                           </span>
                         </div>
                         {isSelected && (
-                          <span style={{ fontSize: 10, color: ch.color, display: 'flex', alignItems: 'center', gap: 4 }}><Check size={10} /> Выбран</span>
+                          <span style={{ fontSize: 10, color: ch.color }}>✓ Выбран</span>
                         )}
                       </button>
                     );
@@ -285,7 +391,7 @@ export default function App() {
           </div>
         </section>
 
-        {/* ── SECTION 3: GLOBAL SCENARIO SELECTOR ──────────────────────────── */}
+        {/* ── SECTION 3: GLOBAL SCENARIO ────────────────────────────────── */}
         <section style={{ marginBottom: 32 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
             <TrendingUp size={16} style={{ color: 'var(--cyan)' }} />
@@ -298,7 +404,7 @@ export default function App() {
                 className={`stab ${activeScenario === sc.key ? `active-${sc.key}` : 'inactive'}`}
                 onClick={() => setActiveScenario(sc.key)}
               >
-                <sc.icon size={14} /> {sc.label}
+                {sc.emoji} {sc.label}
               </button>
             ))}
             <button
@@ -315,26 +421,27 @@ export default function App() {
           </div>
         </section>
 
-        {/* ── SECTION 4: CHANNEL CARDS ──────────────────────────────────────── */}
+        {/* ── SECTION 4: CHANNEL CARDS ──────────────────────────────────── */}
         {selectedChannels.length === 0 ? (
           <div className="glass" style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>
             Выбери хотя бы один канал выше ↑
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 40 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 40 }}>
             {results.map(({ chId, chDef, result }) => {
               const sc = getChannelScenario(chId);
-              const isExpanded = expandedChannels[chId] ?? true;
+              const isExpanded = expandedChannels[chId] ?? false;
               const params = channelParams[chId]?.[sc] || getDefaultParams(chId);
 
               return (
                 <div key={chId} className="glass" style={{ overflow: 'hidden' }}>
-                  {/* Card header */}
+                  {/* Card header — always visible */}
                   <div
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '16px 20px', cursor: 'pointer',
+                      padding: '14px 20px', cursor: 'pointer',
                       borderBottom: isExpanded ? '1px solid var(--border)' : 'none',
+                      transition: 'background 0.15s',
                     }}
                     onClick={() => setExpandedChannels(e => ({ ...e, [chId]: !e[chId] }))}
                   >
@@ -344,11 +451,11 @@ export default function App() {
                         background: chDef.color,
                         boxShadow: `0 0 8px ${chDef.color}80`,
                       }} />
-                      <span style={{ fontWeight: 700, fontSize: 15 }}>{chDef.name}</span>
+                      <span style={{ fontWeight: 700, fontSize: 14 }}>{chDef.name}</span>
                       {result.bottleneck && (
                         <span style={{
                           display: 'flex', alignItems: 'center', gap: 4,
-                          fontSize: 11, color: 'var(--warning)',
+                          fontSize: 10, color: 'var(--warning)',
                           background: 'rgba(255,179,0,0.1)',
                           border: '1px solid rgba(255,179,0,0.3)',
                           borderRadius: 4, padding: '1px 7px',
@@ -358,19 +465,29 @@ export default function App() {
                       )}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 16, fontWeight: 800, color: result.netProfit >= 0 ? chDef.color : 'var(--danger)' }}>
-                          {formatRub(result.netProfit, true)}
+                      {/* Mini metrics always visible */}
+                      <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: 10, color: 'var(--text3)' }}>клиентов</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{formatNum(result.clients)}</div>
                         </div>
-                        <div style={{ fontSize: 10, color: 'var(--text3)' }}>чистая прибыль</div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: 10, color: 'var(--text3)' }}>прибыль</div>
+                          <div style={{ fontSize: 15, fontWeight: 800, color: result.netProfit >= 0 ? chDef.color : 'var(--danger)' }}>
+                            {formatRub(result.netProfit, true)}
+                          </div>
+                        </div>
                       </div>
-                      {isExpanded ? <ChevronUp size={14} style={{ color: 'var(--text3)' }} /> : <ChevronDown size={14} style={{ color: 'var(--text3)' }} />}
+                      <div style={{ color: 'var(--text3)', transition: 'transform 0.2s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                        <ChevronDown size={15} />
+                      </div>
                     </div>
                   </div>
 
+                  {/* Expanded content */}
                   {isExpanded && (
                     <div style={{ padding: '20px' }}>
-                      {/* Scenario tabs for this channel */}
+                      {/* Scenario tabs */}
                       <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
                         {SCENARIO_META.map(s => (
                           <button
@@ -381,7 +498,7 @@ export default function App() {
                               setActiveChannelScenario(prev => ({ ...prev, [chId]: s.key }));
                             }}
                           >
-                            <s.icon size={14} /> {s.label}
+                            {s.emoji} {s.label}
                           </button>
                         ))}
                       </div>
@@ -404,7 +521,7 @@ export default function App() {
                           </div>
                         </div>
 
-                        {/* RIGHT: Funnel + Metrics */}
+                        {/* RIGHT: Funnel */}
                         <div>
                           <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
                             Воронка
@@ -423,7 +540,7 @@ export default function App() {
                               display: 'flex', alignItems: 'flex-start', gap: 6,
                             }}>
                               <AlertTriangle size={12} style={{ flexShrink: 0, marginTop: 1 }} />
-                              <span>Слабое звено: <strong>{result.bottleneck}</strong>. Улучшение этого показателя даст наибольший прирост прибыли.</span>
+                              <span>Слабое звено: <strong>{result.bottleneck}</strong>. Улучшение этого показателя даст наибольший прирост.</span>
                             </div>
                           )}
                         </div>
@@ -443,19 +560,19 @@ export default function App() {
           </div>
         )}
 
-        {/* ── SECTION 5: SUMMARY ───────────────────────────────────────────── */}
+        {/* ── SECTION 5: SUMMARY ───────────────────────────────────────── */}
         {results.length > 1 && (
           <section style={{ marginBottom: 40 }}>
             <div className="glass" style={{ padding: 24 }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--cyan)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 16 }}>
                 Сводка по всем каналам
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12, marginBottom: 20 }}>
                 {[
                   { label: 'Суммарная выручка', value: formatRub(results.reduce((s, r) => s + r.result.revenue, 0), true) },
                   { label: 'Суммарные расходы', value: formatRub(results.reduce((s, r) => s + r.result.cost, 0), true) },
-                  { label: 'Суммарная чистая прибыль', value: formatRub(totalNetProfit, true), highlight: true },
-                  { label: 'Суммарно клиентов', value: formatNum(results.reduce((s, r) => s + r.result.clients, 0)) },
+                  { label: 'Суммарная прибыль', value: formatRub(totalNetProfit, true), highlight: true },
+                  { label: 'Всего клиентов', value: formatNum(results.reduce((s, r) => s + r.result.clients, 0)) },
                 ].map((m, i) => (
                   <div key={i} style={{
                     background: m.highlight ? 'rgba(0,229,255,0.08)' : 'rgba(255,255,255,0.03)',
@@ -468,13 +585,12 @@ export default function App() {
                 ))}
               </div>
 
-              {/* Goal progress */}
               <div style={{ marginBottom: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 12 }}>
                   <span style={{ color: 'var(--text2)' }}>Прогресс к цели {formatRub(goal, true)}</span>
                   <span style={{ fontWeight: 700, color: goalReached ? 'var(--success)' : 'var(--text)' }}>
                     {goalProgress.toFixed(0)}%
-                    {goalReached ? <><Check size={10} /> Достигнута!</> : ` (не хватает ${formatRub(goal - totalNetProfit, true)})`}
+                    {goalReached ? ' ✓ Достигнута!' : ` (−${formatRub(goal - totalNetProfit, true)})`}
                   </span>
                 </div>
                 <div className="progress-track" style={{ height: 10 }}>
@@ -487,10 +603,10 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Channel comparison bars */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {results.map(({ chId, chDef, result }) => {
-                  const pct = totalNetProfit > 0 ? Math.max(0, (result.netProfit / Math.max(...results.map(r => r.result.netProfit))) * 100) : 0;
+                  const maxProfit = Math.max(...results.map(r => Math.abs(r.result.netProfit)), 1);
+                  const pct = Math.max(0, (result.netProfit / maxProfit) * 100);
                   return (
                     <div key={chId} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                       <span style={{ fontSize: 11, color: 'var(--text2)', width: 90, flexShrink: 0 }}>{chDef.shortName}</span>
@@ -503,7 +619,7 @@ export default function App() {
                           fontSize: 10, fontWeight: 600, color: 'rgba(0,0,0,0.8)',
                           whiteSpace: 'nowrap',
                         }}>
-                          {pct > 20 ? formatRub(result.netProfit, true) : ''}
+                          {pct > 25 ? formatRub(result.netProfit, true) : ''}
                         </div>
                       </div>
                       <span style={{ fontSize: 11, fontWeight: 700, width: 90, textAlign: 'right', color: result.netProfit >= 0 ? 'var(--text)' : 'var(--danger)' }}>
@@ -517,9 +633,8 @@ export default function App() {
           </section>
         )}
 
-        {/* Footer note */}
         <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--text3)', paddingBottom: 20 }}>
-          ULTIMA · Декомпозитор целей · Все расчёты являются прогнозными и зависят от конкретных условий бизнеса
+          ULTIMA · Декомпозитор целей · Расчёты являются прогнозными
         </div>
       </div>
     </div>
