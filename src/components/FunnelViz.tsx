@@ -1,6 +1,5 @@
 import type { FunnelStage } from '../types';
 import { formatNum, formatRub } from '../utils';
-import { AlertTriangle } from 'lucide-react';
 
 interface Props {
   stages: FunnelStage[];
@@ -26,7 +25,7 @@ export function FunnelViz({ stages, color, bottleneck }: Props) {
                 fontSize: 11, color: isWeak ? 'var(--warning)' : 'var(--text3)',
                 display: 'flex', alignItems: 'center', gap: 4,
               }}>
-                {isWeak && <AlertTriangle size={12} style={{ color: 'var(--warning)' }} />}
+                {isWeak && <span style={{ fontSize: 12, color: 'var(--warning)' }}>⚠️</span>}
                 {stage.label}: <strong style={{ color: isWeak ? 'var(--warning)' : 'var(--text2)' }}>
                   {stage.value.toFixed(1)}{stage.unit}
                 </strong>

@@ -1,5 +1,4 @@
 import { useState, useMemo, useCallback, useRef } from 'react';
-import { Target, TrendingUp, Zap, Download, RotateCcw, ChevronDown, ChevronUp, AlertTriangle, ArrowRight, BookOpen, BarChart2 } from 'lucide-react';
 import type { ChannelId, ScenarioKey, ChannelScenarios } from './types';
 import { CHANNELS, CHANNEL_MAP, getDefaultParams, applyScenario } from './channels';
 import { ParameterInput } from './components/ParameterInput';
@@ -16,17 +15,17 @@ const SCENARIO_META: { key: ScenarioKey; label: string; emoji: string }[] = [
 
 const WELCOME_STEPS = [
   {
-    icon: Target,
+    emoji: '🎯',
     title: 'Декомпозитор целей',
     text: 'Инструмент ULTIMA для декомпозиции финансовой цели по каналам привлечения клиентов.',
   },
   {
-    icon: BookOpen,
+    emoji: '📖',
     title: 'Как это работает',
     text: 'Введи целевую прибыль → выбери 1–3 канала → заполни параметры. Калькулятор покажет сколько нужно показов, лидов и клиентов.',
   },
   {
-    icon: BarChart2,
+    emoji: '📊',
     title: 'Три сценария',
     text: 'Для каждого канала — пессимист, реалист, оптимист. Сравни результаты и найди слабое звено в воронке.',
   },
@@ -35,7 +34,7 @@ const WELCOME_STEPS = [
 function WelcomeModal({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(0);
   const isLast = step === WELCOME_STEPS.length - 1;
-  const { icon: Icon, title, text } = WELCOME_STEPS[step];
+  const { emoji, title, text } = WELCOME_STEPS[step];
 
   return (
     <div style={{
@@ -63,7 +62,7 @@ function WelcomeModal({ onClose }: { onClose: () => void }) {
           margin: '0 auto 18px',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <Icon size={22} style={{ color: '#00e5ff' }} />
+          <span style={{ fontSize: 22, color: '#00e5ff' }}>{emoji}</span>
         </div>
 
         <div style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 10, letterSpacing: '-0.02em' }}>
@@ -100,7 +99,7 @@ function WelcomeModal({ onClose }: { onClose: () => void }) {
             style={{ flex: isLast ? 1 : 1.5, justifyContent: 'center', fontSize: 13 }}
           >
             {isLast ? 'Начать работу' : 'Далее'}
-            <ArrowRight size={14} />
+            <span style={{ fontSize: 14 }}>➡️</span>
           </button>
         </div>
       </div>
@@ -231,7 +230,7 @@ export default function App() {
             background: 'linear-gradient(135deg, var(--cyan), var(--magenta))',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Target size={16} color="#000" />
+            <span style={{ fontSize: 16, color: '#000' }}>🎯</span>
           </div>
           <div>
             <div style={{ fontWeight: 700, fontSize: 14, letterSpacing: '-0.02em' }}>
@@ -247,10 +246,10 @@ export default function App() {
             style={{ fontSize: 12, padding: '6px 14px' }}
             title="Показать инструкцию"
           >
-            <BookOpen size={13} /> Инструкция
+            <span style={{ fontSize: 13 }}>📖</span> Инструкция
           </button>
           <button className="btn btn-ghost" onClick={handleExport} style={{ fontSize: 12, padding: '6px 14px' }}>
-            <Download size={13} /> PDF
+            <span style={{ fontSize: 13 }}>📥</span> PDF
           </button>
         </div>
       </header>
@@ -262,7 +261,7 @@ export default function App() {
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 24 }}>
             <div style={{ flex: '1 1 320px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <Target size={16} style={{ color: 'var(--cyan)' }} />
+                <span style={{ fontSize: 16, color: 'var(--cyan)' }}>🎯</span>
                 <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--cyan)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Шаг 1 — Цель</span>
               </div>
               <h1 style={{ fontSize: 28, fontWeight: 800, margin: '0 0 6px', letterSpacing: '-0.03em', lineHeight: 1.2 }}>
@@ -344,7 +343,7 @@ export default function App() {
         {/* ── SECTION 2: CHANNEL PICKER ─────────────────────────────────── */}
         <section style={{ marginBottom: 40 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-            <Zap size={16} style={{ color: 'var(--cyan)' }} />
+            <span style={{ fontSize: 16, color: 'var(--cyan)' }}>⚡</span>
             <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--cyan)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Шаг 2 — Каналы</span>
             <span style={{ fontSize: 11, color: 'var(--text3)' }}>Выбери до 3 каналов</span>
           </div>
@@ -394,7 +393,7 @@ export default function App() {
         {/* ── SECTION 3: GLOBAL SCENARIO ────────────────────────────────── */}
         <section style={{ marginBottom: 32 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <TrendingUp size={16} style={{ color: 'var(--cyan)' }} />
+            <span style={{ fontSize: 16, color: 'var(--cyan)' }}>📈</span>
             <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--cyan)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Сценарий по умолчанию</span>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -416,7 +415,7 @@ export default function App() {
                 ));
               }}
             >
-              <RotateCcw size={12} /> Сбросить
+              <span style={{ fontSize: 12 }}>🔄</span> Сбросить
             </button>
           </div>
         </section>
@@ -460,7 +459,7 @@ export default function App() {
                           border: '1px solid rgba(255,179,0,0.3)',
                           borderRadius: 4, padding: '1px 7px',
                         }}>
-                          <AlertTriangle size={10} /> Слабое звено
+                          <span style={{ fontSize: 10 }}>⚠️</span> Слабое звено
                         </span>
                       )}
                     </div>
@@ -479,7 +478,7 @@ export default function App() {
                         </div>
                       </div>
                       <div style={{ color: 'var(--text3)', transition: 'transform 0.2s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
-                        <ChevronDown size={15} />
+                        <span style={{ fontSize: 15 }}>▼</span>
                       </div>
                     </div>
                   </div>
@@ -539,7 +538,7 @@ export default function App() {
                               borderRadius: 8, fontSize: 11, color: 'var(--warning)',
                               display: 'flex', alignItems: 'flex-start', gap: 6,
                             }}>
-                              <AlertTriangle size={12} style={{ flexShrink: 0, marginTop: 1 }} />
+                              <span style={{ fontSize: 12, flexShrink: 0, marginTop: 1 }}>⚠️</span>
                               <span>Слабое звено: <strong>{result.bottleneck}</strong>. Улучшение этого показателя даст наибольший прирост.</span>
                             </div>
                           )}
