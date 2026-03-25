@@ -275,7 +275,7 @@ const marketplaceCalc = (p: Record<string, number>): ChannelResult => {
   const cost = cogs + mp_fee + logistics + ads_cost;
   const netProfit = fmt(revenue) - cost;
   const grossProfit = netProfit;
-  const roi = safeDiv(netProfit, mp_fee + logistics + ads_cost);
+  const roi = safeDiv(netProfit, cost);
   const bottleneck = checkBottleneck([
     { label: 'Выкуп', value: p.buyout_rate, benchmark: 60 },
   ]);
@@ -300,16 +300,15 @@ const webinarCalc = (p: Record<string, number>): ChannelResult => {
   const grossProfit = fmt(revenue * p.margin / 100);
   const netProfit = grossProfit - cost;
   const roi = safeDiv(netProfit, cost);
-  const costPerReg = fmt(safeDiv(p.traffic_cost, p.registrations));
-  const bottleneck = checkBottleneck([
+  const costPerReg = fmt(safeDiv(p.traffic_cost, p.registrations));  const bottleneck = checkBottleneck([
     { label: 'Доходимость', value: p.show_rate, benchmark: 30 },
     { label: 'Конв. на вебинаре', value: p.webinar_conv, benchmark: 7 },
     { label: 'Конв. в оплату', value: p.payment_conv, benchmark: 60 },
   ]);
-  void costPerReg;
   return {
     funnel: [
       { label: 'Регистрации', value: fmt(p.registrations) },
+      { label: 'Цена регистрации', value: costPerReg, unit: '₽' },
       { label: 'Доходимость', value: p.show_rate, isConversion: true, unit: '%' },
       { label: 'Пришли', value: attended },
       { label: 'Конв. на вебинаре', value: p.webinar_conv, isConversion: true, unit: '%' },
@@ -441,7 +440,7 @@ export const CHANNELS: ChannelDef[] = [
     calculate: emailCalc,
   },
   {
-    id: 'partners', name: 'Партнёры / агенты', shortName: 'Партнёры', color: '#26C17A',
+    id: 'partners', name: 'Партнёры / агенты', shortName: 'Партнёры', color: '#00BCD4',
     category: 'direct', categoryLabel: 'Прямые продажи',
     params: [
       { id: 'partners', label: 'Всего партнёров', unit: 'шт', min: 1, step: 1, defaultValue: 20, isInput: true, benchmark: { range: '2–500', typical: '5–50', hint: 'Общее число партнёров / агентов в вашей сети.' } },
