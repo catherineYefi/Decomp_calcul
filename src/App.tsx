@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef } from 'react';
-import { Target, TrendingUp, TrendingDown, Zap, Download, RotateCcw, ChevronDown, ChevronUp, AlertTriangle, Check } from 'lucide-react';
+import { Target, TrendingUp, TrendingDown, Zap, Download, RotateCcw, ChevronDown, ChevronUp, AlertTriangle, Check, LucideIcon } from 'lucide-react';
 import type { ChannelId, ScenarioKey, ChannelScenarios } from './types';
 import { CHANNELS, CHANNEL_MAP, getDefaultParams, applyScenario } from './channels';
 import { ParameterInput } from './components/ParameterInput';
@@ -8,7 +8,7 @@ import { MetricsGrid } from './components/MetricsGrid';
 import { formatRub, formatNum } from './utils';
 import './index.css';
 
-const SCENARIO_META: { key: ScenarioKey; label: string; icon: React.ComponentType<{size?: number}> }[] = [
+const SCENARIO_META: { key: ScenarioKey; label: string; icon: LucideIcon }[] = [
   { key: 'pessimist', label: 'Пессимист', icon: TrendingDown },
   { key: 'realist',   label: 'Реалист',   icon: Target },
   { key: 'optimist',  label: 'Оптимист',  icon: TrendingUp },
@@ -381,7 +381,7 @@ export default function App() {
                               setActiveChannelScenario(prev => ({ ...prev, [chId]: s.key }));
                             }}
                           >
-                            {s.emoji} {s.label}
+                            <s.icon size={14} /> {s.label}
                           </button>
                         ))}
                       </div>
