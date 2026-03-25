@@ -108,6 +108,173 @@ function WelcomeModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+
+const CHANNEL_INFO: Record<string, {
+  description: string;
+  bestFor: string[];
+  funnel: string;
+  typical: { label: string; value: string }[];
+}> = {
+  ppc: {
+    description: 'Контекстная реклама в Яндекс Директ — объявления в поиске и на сайтах РСЯ. Платишь за клики.',
+    bestFor: ['Услуги с понятным спросом', 'B2B и B2C', 'Быстрый старт за 1–3 дня'],
+    funnel: 'Показы → Клики → Лиды → Клиенты',
+    typical: [{ label: 'CTR', value: '2–6%' }, { label: 'Конв. сайта', value: '1–5%' }, { label: 'ROI', value: '100–400%' }],
+  },
+  targeting: {
+    description: 'Таргетированная реклама в ВКонтакте, MyTarget. Работает на аудиторию по интересам и демографии.',
+    bestFor: ['B2C продукты', 'Широкая аудитория', 'Визуальные ниши'],
+    funnel: 'Показы → Клики → Лиды → Клиенты',
+    typical: [{ label: 'CTR', value: '0.5–2%' }, { label: 'CPC', value: '15–80 ₽' }, { label: 'ROI', value: '50–200%' }],
+  },
+  reels: {
+    description: 'Короткие видео в Instagram/YouTube Shorts/TikTok. Органический охват без рекламного бюджета.',
+    bestFor: ['Личный бренд', 'EdTech и инфобизнес', 'Услуги с экспертностью'],
+    funnel: 'Охват → Переходы → Лиды → Клиенты',
+    typical: [{ label: '% переходов', value: '1–4%' }, { label: 'Конв. в лид', value: '3–8%' }, { label: 'ROI', value: '200–1000%' }],
+  },
+  telegram: {
+    description: 'Telegram-канал как инструмент прогрева и продаж. Высокий органический охват, тёплая аудитория.',
+    bestFor: ['Инфобизнес', 'B2B экспертиза', 'Долгосрочный прогрев'],
+    funnel: 'Подписчики → Охват → Клики → Клиенты',
+    typical: [{ label: 'Охват поста', value: '15–30%' }, { label: 'CTR', value: '2–7%' }, { label: 'ROI', value: '300–2000%' }],
+  },
+  seo: {
+    description: 'SEO-продвижение сайта и карточки в Яндекс Картах. Долгосрочный органический трафик.',
+    bestFor: ['Локальный бизнес', 'Интернет-магазины', 'Долгий горизонт'],
+    funnel: 'Трафик → Лиды → Клиенты',
+    typical: [{ label: 'Конв. сайта', value: '1–5%' }, { label: 'Конв. продажи', value: '15–30%' }, { label: 'ROI', value: '200–500%' }],
+  },
+  cold_calls: {
+    description: 'Холодный обзвон базы потенциальных клиентов. Прямые продажи через менеджеров.',
+    bestFor: ['B2B продажи', 'Производство', 'Оптовые поставки'],
+    funnel: 'Звонки → Разговоры → Встречи → Сделки',
+    typical: [{ label: 'Дозвон до ЛПР', value: '10–25%' }, { label: 'Конв. скрипта', value: '7–15%' }, { label: 'Конв. в сделку', value: '15–30%' }],
+  },
+  email: {
+    description: 'Email-рассылка по собственной базе. Эффективна для реактивации и допродаж.',
+    bestFor: ['Реактивация базы', 'B2B коммуникации', 'Инфобизнес'],
+    funnel: 'База → Прочтения → Клики → Клиенты',
+    typical: [{ label: 'Открываемость', value: '12–25%' }, { label: 'CTR', value: '2–6%' }, { label: 'ROI', value: '100–400%' }],
+  },
+  partners: {
+    description: 'Партнёрская сеть — агенты и реферальные партнёры приводят клиентов за комиссию.',
+    bestFor: ['Франшизы', 'B2B сервисы', 'Региональный рост'],
+    funnel: 'Партнёры → Активные → Сделки → Клиенты',
+    typical: [{ label: 'Активных', value: '25–50%' }, { label: 'Сделок/партнёр', value: '1–4/мес' }, { label: 'Комиссия', value: '10–25%' }],
+  },
+  marketplace: {
+    description: 'Wildberries, Ozon и другие маркетплейсы. Платишь комиссию и логистику, получаешь готовый трафик.',
+    bestFor: ['Физические товары', 'Масштабирование', 'e-commerce'],
+    funnel: 'Показы → Заказы → Выкуп → Продажи',
+    typical: [{ label: 'Выкуп', value: '55–80%' }, { label: 'Комиссия МП', value: '15–25%' }, { label: 'Маржа', value: '20–40%' }],
+  },
+  webinar: {
+    description: 'Вебинарная воронка — регистрация → вебинар → продажа. Классика инфобизнеса.',
+    bestFor: ['EdTech', 'Онлайн-курсы', 'Консалтинг'],
+    funnel: 'Регистрации → Доходимость → Заявки → Продажи',
+    typical: [{ label: 'Доходимость', value: '20–40%' }, { label: 'Конв. на вебе', value: '4–12%' }, { label: 'Конв. в оплату', value: '40–75%' }],
+  },
+  custom: {
+    description: 'Любой канал с нестандартной воронкой. Задай свои названия этапов и конверсии.',
+    bestFor: ['Нестандартные ниши', 'Сложные воронки', 'Любой бизнес'],
+    funnel: 'Этап 1 → Этап 2 → Этап 3 → Клиенты',
+    typical: [{ label: 'Гибкость', value: '100%' }, { label: 'Настройка', value: 'полная' }, { label: 'Ниши', value: 'все' }],
+  },
+};
+
+function ChannelInfoPanel({ channelId, selectedIds }: { channelId: string | null; selectedIds: string[] }) {
+  const info = channelId ? CHANNEL_INFO[channelId] : null;
+  const ch = channelId ? CHANNEL_MAP[channelId] : null;
+  const isSelected = channelId ? selectedIds.includes(channelId) : false;
+
+  if (!info || !ch) {
+    return (
+      <div className="glass" style={{ padding: 20, minHeight: 200, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 12, textAlign: 'center' }}>
+        <div style={{
+          width: 40, height: 40, borderRadius: 10,
+          background: 'rgba(0,229,255,0.06)',
+          border: '1px solid rgba(0,229,255,0.15)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Zap size={18} style={{ color: 'rgba(0,229,255,0.4)' }} />
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.6, maxWidth: 200 }}>
+          Наведи на любой канал, чтобы узнать подробности
+        </div>
+        {selectedIds.length > 0 && (
+          <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text3)' }}>
+            Выбрано: <span style={{ color: 'var(--cyan)', fontWeight: 600 }}>{selectedIds.length} / 3</span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="glass" style={{ padding: 20, transition: 'all 0.2s' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+        <div style={{
+          width: 10, height: 10, borderRadius: '50%',
+          background: ch.color, flexShrink: 0,
+          boxShadow: `0 0 10px ${ch.color}80`,
+        }} />
+        <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{ch.name}</span>
+        {isSelected && (
+          <span style={{ marginLeft: 'auto', fontSize: 10, color: ch.color, background: `${ch.color}18`, border: `1px solid ${ch.color}40`, borderRadius: 4, padding: '1px 7px' }}>
+            ✓ Выбран
+          </span>
+        )}
+      </div>
+
+      {/* Description */}
+      <p style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.65, marginBottom: 14, margin: '0 0 14px' }}>
+        {info.description}
+      </p>
+
+      {/* Funnel chain */}
+      <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 4, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Воронка</div>
+      <div style={{
+        fontSize: 11, color: 'var(--text2)',
+        background: 'rgba(255,255,255,0.03)',
+        border: '1px solid var(--border)',
+        borderRadius: 8, padding: '8px 10px',
+        marginBottom: 14,
+        lineHeight: 1.5,
+      }}>
+        {info.funnel}
+      </div>
+
+      {/* Best for */}
+      <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Подходит для</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 14 }}>
+        {info.bestFor.map((item, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, color: 'var(--text2)' }}>
+            <div style={{ width: 4, height: 4, borderRadius: '50%', background: ch.color, flexShrink: 0 }} />
+            {item}
+          </div>
+        ))}
+      </div>
+
+      {/* Typical metrics */}
+      <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 8, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Типичные показатели</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+        {info.typical.map((m, i) => (
+          <div key={i} style={{
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid var(--border)',
+            borderRadius: 8, padding: '6px 8px', textAlign: 'center',
+          }}>
+            <div style={{ fontSize: 9, color: 'var(--text3)', marginBottom: 2 }}>{m.label}</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: ch.color }}>{m.value}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function buildInitialScenarios(channelId: ChannelId): ChannelScenarios {
   const base = getDefaultParams(channelId);
   return {
@@ -136,6 +303,7 @@ export default function App() {
   // First channel open, rest collapsed by default
   const [expandedChannels, setExpandedChannels] = useState<Record<string, boolean>>({ ppc: true });
   const [activeChannelScenario, setActiveChannelScenario] = useState<Record<string, ScenarioKey>>({});
+  const [hoveredChannel, setHoveredChannel] = useState<ChannelId | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
 
   const toggleChannel = useCallback((id: ChannelId) => {
@@ -349,45 +517,55 @@ export default function App() {
             <span style={{ fontSize: 11, color: 'var(--text3)' }}>Выбери до 3 каналов</span>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {categorizedChannels.map(cat => (
-              <div key={cat.label}>
-                <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
-                  {cat.label}
+          <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+            {/* LEFT: channel buttons */}
+            <div style={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {categorizedChannels.map(cat => (
+                <div key={cat.label}>
+                  <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
+                    {cat.label}
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {cat.ids.map(chId => {
+                      const ch = CHANNEL_MAP[chId];
+                      const isSelected = selectedChannels.includes(chId);
+                      const isDisabled = !isSelected && selectedChannels.length >= 3;
+                      return (
+                        <button
+                          key={chId}
+                          className={`ch-btn ${isSelected ? 'selected' : ''}`}
+                          onClick={() => toggleChannel(chId)}
+                          onMouseEnter={() => setHoveredChannel(chId)}
+                          onMouseLeave={() => setHoveredChannel(null)}
+                          disabled={isDisabled}
+                          style={{
+                            borderColor: isSelected ? ch.color : undefined,
+                            opacity: isDisabled ? 0.4 : 1,
+                            cursor: isDisabled ? 'not-allowed' : 'pointer',
+                            minWidth: 110,
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: ch.color, flexShrink: 0 }} />
+                            <span style={{ fontSize: 12, fontWeight: 600, color: isSelected ? 'var(--text)' : 'var(--text2)' }}>
+                              {ch.shortName}
+                            </span>
+                          </div>
+                          {isSelected && (
+                            <span style={{ fontSize: 10, color: ch.color }}>✓ Выбран</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {cat.ids.map(chId => {
-                    const ch = CHANNEL_MAP[chId];
-                    const isSelected = selectedChannels.includes(chId);
-                    const isDisabled = !isSelected && selectedChannels.length >= 3;
-                    return (
-                      <button
-                        key={chId}
-                        className={`ch-btn ${isSelected ? 'selected' : ''}`}
-                        onClick={() => toggleChannel(chId)}
-                        disabled={isDisabled}
-                        style={{
-                          borderColor: isSelected ? ch.color : undefined,
-                          opacity: isDisabled ? 0.4 : 1,
-                          cursor: isDisabled ? 'not-allowed' : 'pointer',
-                          minWidth: 120,
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: ch.color, flexShrink: 0 }} />
-                          <span style={{ fontSize: 12, fontWeight: 600, color: isSelected ? 'var(--text)' : 'var(--text2)' }}>
-                            {ch.shortName}
-                          </span>
-                        </div>
-                        {isSelected && (
-                          <span style={{ fontSize: 10, color: ch.color }}>✓ Выбран</span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
+
+            {/* RIGHT: channel info panel */}
+            <div style={{ flex: '0 0 272px', position: 'sticky', top: 80 }}>
+              <ChannelInfoPanel channelId={hoveredChannel} selectedIds={selectedChannels} />
+            </div>
           </div>
         </section>
 
