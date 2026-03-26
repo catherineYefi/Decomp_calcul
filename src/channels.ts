@@ -1,4 +1,4 @@
-import type { ChannelDef, ChannelResult, ParamDef } from './types';
+import type { ChannelDef, ChannelResult, ParamDef, ReverseResult } from './types';
 
 const fmt = (n: number) => Math.round(n);
 const r = (n: number) => Math.round(n * 100) / 100; // keeps 2 decimals for intermediate values
@@ -346,6 +346,217 @@ const customCalc = (p: Record<string, number>): ChannelResult => {
   };
 };
 
+
+// ─── REVERSE CALC FUNCTIONS ─────────────────────────────────────────────────
+// General pattern: targetNetProfit = volume × convChain × avg_check × margin/100 - volume × costPerUnit
+// → volume = targetNetProfit / (convChain × avg_check × margin/100 - costPerUnit)
+
+function infeasible(warning: string): ReverseResult {
+  return { items: [], feasible: false, warning };
+}
+
+function reverseItem(label: string, value: number, unit: string, isKey = false) {
+  return { label, value: Math.round(value), unit, isKey };
+}
+
+const reversePPC = (target: number, p: Record<string, number>): ReverseResult => {
+  const convChain = (p.ctr / 100) * (p.site_conv / 100) * (p.sale_conv / 100);
+  const revenuePerImpression = convChain * p.avg_check * (p.margin / 100);
+  const costPerImpression = (p.ctr / 100) * p.cpc;
+  const profitPerImpression = revenuePerImpression - costPerImpression;
+  if (profitPerImpression <= 0) return infeasible('При текущих конверсиях и цене клика канал убыточен. Снизи CPC или повысь конверсии.');
+  const impressions = target / profitPerImpression;
+  const clicks = impressions * p.ctr / 100;
+  const leads = clicks * p.site_conv / 100;
+  const clients = leads * p.sale_conv / 100;
+  const budget = Math.round(clicks * p.cpc);
+  return { feasible: true, items: [
+    reverseItem('Показов нужно', impressions, 'шт', true),
+    reverseItem('Кликов нужно', clicks, 'шт'),
+    reverseItem('Лидов нужно', leads, 'шт'),
+    reverseItem('Клиентов нужно', clients, 'чел'),
+    reverseItem('Бюджет на рекламу', budget, '₽'),
+  ]};
+};
+
+const reverseTargeting = (target: number, p: Record<string, number>): ReverseResult => {
+  const convChain = (p.ctr / 100) * (p.site_conv / 100) * (p.sale_conv / 100);
+  const revenuePerImpression = convChain * p.avg_check * (p.margin / 100);
+  const costPerImpression = (p.ctr / 100) * p.cpc;
+  const profitPerImpression = revenuePerImpression - costPerImpression;
+  if (profitPerImpression <= 0) return infeasible('Канал убыточен при текущих параметрах. Снизи CPC или повысь конверсии.');
+  const impressions = target / profitPerImpression;
+  const clicks = impressions * p.ctr / 100;
+  const leads = clicks * p.site_conv / 100;
+  const clients = leads * p.sale_conv / 100;
+  return { feasible: true, items: [
+    reverseItem('Показов нужно', impressions, 'шт', true),
+    reverseItem('Кликов нужно', clicks, 'шт'),
+    reverseItem('Лидов нужно', leads, 'шт'),
+    reverseItem('Клиентов нужно', clients, 'чел'),
+    reverseItem('Бюджет на рекламу', clicks * p.cpc, '₽'),
+  ]};
+};
+
+const reverseReels = (target: number, p: Record<string, number>): ReverseResult => {
+  const convChain = (p.click_rate / 100) * (p.lead_conv / 100) * (p.sale_conv / 100);
+  const revenuePerView = convChain * p.avg_check * (p.margin / 100);
+  // cost is fixed (production_cost), not per-view — so solve differently
+  // netProfit = reach × convChain × avg_check × margin/100 - production_cost = target
+  // reach = (target + production_cost) / (convChain × avg_check × margin/100)
+  if (revenuePerView <= 0) return infeasible('При текущих конверсиях прибыль с просмотра равна нулю.');
+  const reach = (target + p.production_cost) / revenuePerView;
+  const clicks = reach * p.click_rate / 100;
+  const leads = clicks * p.lead_conv / 100;
+  const clients = leads * p.sale_conv / 100;
+  return { feasible: true, items: [
+    reverseItem('Охват (просмотры) нужен', reach, 'шт', true),
+    reverseItem('Переходов нужно', clicks, 'шт'),
+    reverseItem('Лидов нужно', leads, 'шт'),
+    reverseItem('Клиентов нужно', clients, 'чел'),
+  ]};
+};
+
+const reverseTelegram = (target: number, p: Record<string, number>): ReverseResult => {
+  // netProfit = subscribers × reach_rate/100 × click_rate/100 × lead_conv/100 × sale_conv/100 × avg_check × margin/100 - ad_cost
+  const convChain = (p.reach_rate / 100) * (p.click_rate / 100) * (p.lead_conv / 100) * (p.sale_conv / 100);
+  const revenuePerSub = convChain * p.avg_check * (p.margin / 100);
+  if (revenuePerSub <= 0) return infeasible('При текущих конверсиях прибыль с подписчика равна нулю.');
+  const subscribers = (target + p.ad_cost) / revenuePerSub;
+  const reach = subscribers * p.reach_rate / 100;
+  const clicks = reach * p.click_rate / 100;
+  const leads = clicks * p.lead_conv / 100;
+  const clients = leads * p.sale_conv / 100;
+  return { feasible: true, items: [
+    reverseItem('Подписчиков нужно', subscribers, 'чел', true),
+    reverseItem('Охват поста нужен', reach, 'чел'),
+    reverseItem('Кликов нужно', clicks, 'шт'),
+    reverseItem('Лидов нужно', leads, 'шт'),
+    reverseItem('Клиентов нужно', clients, 'чел'),
+  ]};
+};
+
+const reverseSEO = (target: number, p: Record<string, number>): ReverseResult => {
+  const convChain = (p.site_conv / 100) * (p.sale_conv / 100);
+  const revenuePerVisitor = convChain * p.avg_check * (p.margin / 100);
+  if (revenuePerVisitor <= 0) return infeasible('При текущих конверсиях прибыль с посетителя равна нулю.');
+  const traffic = (target + p.monthly_cost) / revenuePerVisitor;
+  const leads = traffic * p.site_conv / 100;
+  const clients = leads * p.sale_conv / 100;
+  return { feasible: true, items: [
+    reverseItem('Трафика нужно', traffic, 'посет./мес', true),
+    reverseItem('Лидов нужно', leads, 'шт'),
+    reverseItem('Клиентов нужно', clients, 'чел'),
+    reverseItem('Затраты на SEO', p.monthly_cost, '₽'),
+  ]};
+};
+
+const reverseColdCalls = (target: number, p: Record<string, number>): ReverseResult => {
+  const convChain = (p.contact_rate / 100) * (p.script_conv / 100) * (p.close_rate / 100);
+  const revenuePerCall = convChain * p.avg_check * (p.margin / 100);
+  const costPerCall = p.cost_per_call;
+  const profitPerCall = revenuePerCall - costPerCall;
+  if (profitPerCall <= 0) return infeasible('При текущих конверсиях и стоимости звонка канал убыточен.');
+  const calls = target / profitPerCall;
+  const conversations = calls * p.contact_rate / 100;
+  const meetings = conversations * p.script_conv / 100;
+  const clients = meetings * p.close_rate / 100;
+  return { feasible: true, items: [
+    reverseItem('Звонков нужно', calls, 'шт', true),
+    reverseItem('Разговоров с ЛПР нужно', conversations, 'шт'),
+    reverseItem('Встреч / КП нужно', meetings, 'шт'),
+    reverseItem('Клиентов нужно', clients, 'чел'),
+    reverseItem('Бюджет на колл-центр', calls * p.cost_per_call, '₽'),
+  ]};
+};
+
+const reverseEmail = (target: number, p: Record<string, number>): ReverseResult => {
+  const convChain = (p.open_rate / 100) * (p.click_rate / 100) * (p.lead_conv / 100) * (p.sale_conv / 100);
+  const revenuePerEmail = convChain * p.avg_check * (p.margin / 100);
+  const costPerEmail = p.cost_per_email;
+  const profitPerEmail = revenuePerEmail - costPerEmail;
+  if (profitPerEmail <= 0) return infeasible('При текущих конверсиях и стоимости рассылки канал убыточен.');
+  const baseSize = target / profitPerEmail;
+  const reads = baseSize * p.open_rate / 100;
+  const clicks = reads * p.click_rate / 100;
+  const leads = clicks * p.lead_conv / 100;
+  const clients = leads * p.sale_conv / 100;
+  return { feasible: true, items: [
+    reverseItem('База писем нужна', baseSize, 'адресов', true),
+    reverseItem('Прочтений нужно', reads, 'шт'),
+    reverseItem('Кликов нужно', clicks, 'шт'),
+    reverseItem('Лидов нужно', leads, 'шт'),
+    reverseItem('Клиентов нужно', clients, 'чел'),
+  ]};
+};
+
+const reversePartners = (target: number, p: Record<string, number>): ReverseResult => {
+  // netProfit = clients × avg_check × (margin/100 - commission_rate/100)
+  // clients = partners × active_rate/100 × deals_per_active × payment_conv/100
+  const marginAfterComm = (p.margin - p.commission_rate) / 100;
+  if (marginAfterComm <= 0) return infeasible('Комиссия партнёрам превышает маржу. Пересмотри условия.');
+  const profitPerClient = p.avg_check * marginAfterComm;
+  const clients = target / profitPerClient;
+  const deals = clients / (p.payment_conv / 100);
+  const active = deals / p.deals_per_active;
+  const partners = active / (p.active_rate / 100);
+  return { feasible: true, items: [
+    reverseItem('Партнёров нужно', partners, 'чел', true),
+    reverseItem('Активных партнёров нужно', active, 'чел'),
+    reverseItem('Сделок нужно', deals, 'шт'),
+    reverseItem('Клиентов нужно', clients, 'чел'),
+  ]};
+};
+
+const reverseMarketplace = (target: number, p: Record<string, number>): ReverseResult => {
+  // netProfit = purchases × avg_check × (1 - cogs_rate/100 - mp_commission/100) - purchases × logistics - ads
+  const marginPerUnit = p.avg_check * (1 - p.cogs_rate / 100 - p.mp_commission / 100) - p.logistics_per_order;
+  if (marginPerUnit <= 0) return infeasible('При текущей себестоимости, комиссии и логистике каждый заказ убыточен.');
+  const purchases = (target + p.ads_budget) / marginPerUnit;
+  const orders = purchases / (p.buyout_rate / 100);
+  return { feasible: true, items: [
+    reverseItem('Заказов нужно', orders, 'шт', true),
+    reverseItem('Выкупов нужно', purchases, 'шт'),
+    reverseItem('Выручки нужно', purchases * p.avg_check, '₽'),
+    reverseItem('Бюджет на рекламу МП', p.ads_budget, '₽'),
+  ]};
+};
+
+const reverseWebinar = (target: number, p: Record<string, number>): ReverseResult => {
+  const convChain = (p.show_rate / 100) * (p.webinar_conv / 100) * (p.payment_conv / 100);
+  const revenuePerReg = convChain * p.avg_check * (p.margin / 100);
+  const totalCost = p.traffic_cost + p.platform_cost;
+  if (revenuePerReg <= 0) return infeasible('При текущих конверсиях прибыль с регистрации равна нулю.');
+  const registrations = (target + totalCost) / revenuePerReg;
+  const attended = registrations * p.show_rate / 100;
+  const applications = attended * p.webinar_conv / 100;
+  const clients = applications * p.payment_conv / 100;
+  const costPerReg = safeDiv(p.traffic_cost, registrations);
+  return { feasible: true, items: [
+    reverseItem('Регистраций нужно', registrations, 'шт', true),
+    reverseItem('Пришли на вебинар нужно', attended, 'чел'),
+    reverseItem('Заявок нужно', applications, 'шт'),
+    reverseItem('Клиентов нужно', clients, 'чел'),
+    reverseItem('Допустимая цена регистрации', costPerReg, '₽'),
+  ]};
+};
+
+const reverseCustom = (target: number, p: Record<string, number>): ReverseResult => {
+  const convChain = (p.conv1 / 100) * (p.conv2 / 100) * (p.conv3 / 100);
+  const revenuePerUnit = convChain * p.avg_check * (p.margin / 100);
+  if (revenuePerUnit <= 0) return infeasible('При текущих конверсиях прибыль с единицы объёма равна нулю.');
+  const volume = (target + p.cost) / revenuePerUnit;
+  const s2 = volume * p.conv1 / 100;
+  const s3 = s2 * p.conv2 / 100;
+  const clients = s3 * p.conv3 / 100;
+  return { feasible: true, items: [
+    reverseItem('Входного объёма нужно', volume, 'шт', true),
+    reverseItem('Этап 2', s2, 'шт'),
+    reverseItem('Этап 3', s3, 'шт'),
+    reverseItem('Клиентов нужно', clients, 'чел'),
+  ]};
+};
+
 // ─── CHANNEL DEFINITIONS ─────────────────────────────────────────────────────
 export const CHANNELS: ChannelDef[] = [
   {
@@ -360,6 +571,7 @@ export const CHANNELS: ChannelDef[] = [
       ...COMMON_PARAMS,
     ],
     calculate: ppcCalc,
+    reverseCalc: reversePPC,
   },
   {
     id: 'targeting', name: 'Таргетированная реклама', shortName: 'Таргет', color: '#9C4EE8',
@@ -373,6 +585,7 @@ export const CHANNELS: ChannelDef[] = [
       ...COMMON_PARAMS,
     ],
     calculate: targetingCalc,
+    reverseCalc: reverseTargeting,
   },
   {
     id: 'reels', name: 'Reels / YouTube / Shorts', shortName: 'Reels', color: '#E84E8A',
@@ -386,6 +599,7 @@ export const CHANNELS: ChannelDef[] = [
       ...COMMON_PARAMS,
     ],
     calculate: reelsCalc,
+    reverseCalc: reverseReels,
   },
   {
     id: 'telegram', name: 'Telegram-канал', shortName: 'Telegram', color: '#2AABEE',
@@ -400,6 +614,7 @@ export const CHANNELS: ChannelDef[] = [
       ...COMMON_PARAMS,
     ],
     calculate: telegramCalc,
+    reverseCalc: reverseTelegram,
   },
   {
     id: 'seo', name: 'SEO / Яндекс Карты', shortName: 'SEO', color: '#26C17A',
@@ -412,6 +627,7 @@ export const CHANNELS: ChannelDef[] = [
       ...COMMON_PARAMS,
     ],
     calculate: seoCalc,
+    reverseCalc: reverseSEO,
   },
   {
     id: 'cold_calls', name: 'Холодные звонки', shortName: 'Звонки', color: '#FF7043',
@@ -425,6 +641,7 @@ export const CHANNELS: ChannelDef[] = [
       ...COMMON_PARAMS,
     ],
     calculate: coldCallsCalc,
+    reverseCalc: reverseColdCalls,
   },
   {
     id: 'email', name: 'Email-рассылка', shortName: 'Email', color: '#FF9800',
@@ -439,6 +656,7 @@ export const CHANNELS: ChannelDef[] = [
       ...COMMON_PARAMS,
     ],
     calculate: emailCalc,
+    reverseCalc: reverseEmail,
   },
   {
     id: 'partners', name: 'Партнёры / агенты', shortName: 'Партнёры', color: '#00BCD4',
@@ -452,6 +670,7 @@ export const CHANNELS: ChannelDef[] = [
       ...COMMON_PARAMS,
     ],
     calculate: partnersCalc,
+    reverseCalc: reversePartners,
   },
   {
     id: 'marketplace', name: 'Маркетплейсы (WB / Ozon)', shortName: 'МП', color: '#5B8DEF',
@@ -466,6 +685,7 @@ export const CHANNELS: ChannelDef[] = [
       { id: 'ads_budget', label: 'Бюджет на рекламу МП', unit: '₽', min: 0, step: 5000, defaultValue: 30000, isInput: true, benchmark: { range: '0–1 000 000 ₽', typical: '10 000–200 000 ₽', hint: 'Внутренняя реклама на WB/Ozon за месяц.' } },
     ],
     calculate: marketplaceCalc,
+    reverseCalc: reverseMarketplace,
   },
   {
     id: 'webinar', name: 'Вебинарная воронка', shortName: 'Вебинар', color: '#E8A21E',
@@ -480,6 +700,7 @@ export const CHANNELS: ChannelDef[] = [
       ...COMMON_PARAMS,
     ],
     calculate: webinarCalc,
+    reverseCalc: reverseWebinar,
   },
   {
     id: 'custom', name: 'Свой канал', shortName: 'Свой', color: '#9E9E9E',
@@ -493,6 +714,7 @@ export const CHANNELS: ChannelDef[] = [
       ...COMMON_PARAMS,
     ],
     calculate: customCalc,
+    reverseCalc: reverseCustom,
   },
 ];
 

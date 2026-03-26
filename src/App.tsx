@@ -7,6 +7,7 @@ import { FunnelViz } from './components/FunnelViz';
 import { MetricsGrid } from './components/MetricsGrid';
 import { formatRub, formatNum } from './utils';
 import { MonthlyPlan } from './components/MonthlyPlan';
+import { ReverseCalcPanel } from './components/ReverseCalcPanel';
 import './index.css';
 
 const SCENARIO_META: { key: ScenarioKey; label: string }[] = [
@@ -305,6 +306,7 @@ export default function App() {
   const [expandedChannels, setExpandedChannels] = useState<Record<string, boolean>>({ ppc: true });
   const [activeChannelScenario, setActiveChannelScenario] = useState<Record<string, ScenarioKey>>({});
   const [hoveredChannel, setHoveredChannel] = useState<ChannelId | null>(null);
+  const [channelMode, setChannelMode] = useState<Record<string, 'forecast' | 'from_goal'>>({});
   const printRef = useRef<HTMLDivElement>(null);
 
   const toggleChannel = useCallback((id: ChannelId) => {

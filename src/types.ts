@@ -42,6 +42,19 @@ export interface ChannelResult {
   valid: boolean;
 }
 
+export interface ReverseItem {
+  label: string;
+  value: number;
+  unit: string;
+  isKey?: boolean; // main volume metric to achieve
+}
+
+export interface ReverseResult {
+  items: ReverseItem[];
+  feasible: boolean; // false if math is impossible (e.g. negative denominator)
+  warning?: string;
+}
+
 export interface ChannelDef {
   id: ChannelId;
   name: string;
@@ -51,7 +64,7 @@ export interface ChannelDef {
   categoryLabel: string;
   params: ParamDef[];
   calculate: (inputs: Record<string, number>) => ChannelResult;
-  reverseCalc?: (targetProfit: number, inputs: Record<string, number>) => Record<string, number>;
+  reverseCalc: (targetProfit: number, inputs: Record<string, number>) => ReverseResult;
 }
 
 export type ScenarioParams = Record<string, number>; // paramId -> value
