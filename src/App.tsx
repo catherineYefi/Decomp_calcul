@@ -6,12 +6,13 @@ import { ParameterInput } from './components/ParameterInput';
 import { FunnelViz } from './components/FunnelViz';
 import { MetricsGrid } from './components/MetricsGrid';
 import { formatRub, formatNum } from './utils';
+import { MonthlyPlan } from './components/MonthlyPlan';
 import './index.css';
 
-const SCENARIO_META: { key: ScenarioKey; label: string; emoji: string }[] = [
-  { key: 'pessimist', label: 'Пессимист', emoji: '📉' },
-  { key: 'realist',   label: 'Реалист',   emoji: '🎯' },
-  { key: 'optimist',  label: 'Оптимист',  emoji: '🚀' },
+const SCENARIO_META: { key: ScenarioKey; label: string }[] = [
+  { key: 'pessimist', label: 'Пессимист' },
+  { key: 'realist',   label: 'Реалист'   },
+  { key: 'optimist',  label: 'Оптимист'  },
 ];
 
 const WELCOME_STEPS = [
@@ -582,7 +583,7 @@ export default function App() {
                 className={`stab ${activeScenario === sc.key ? `active-${sc.key}` : 'inactive'}`}
                 onClick={() => setActiveScenario(sc.key)}
               >
-                {sc.emoji} {sc.label}
+                {sc.label}
               </button>
             ))}
             <button
@@ -598,6 +599,12 @@ export default function App() {
             </button>
           </div>
         </section>
+
+        {/* ── SECTION 3.5: MONTHLY PLAN ────────────────────────────────── */}
+        <MonthlyPlan
+          yearGoal={goal * 12}
+          monthlyChannelProfit={totalNetProfit}
+        />
 
         {/* ── SECTION 4: CHANNEL CARDS ──────────────────────────────────── */}
         {selectedChannels.length === 0 ? (
@@ -676,7 +683,7 @@ export default function App() {
                               setActiveChannelScenario(prev => ({ ...prev, [chId]: s.key }));
                             }}
                           >
-                            {s.emoji} {s.label}
+                            {s.label}
                           </button>
                         ))}
                       </div>

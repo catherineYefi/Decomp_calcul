@@ -1,6 +1,7 @@
 import type { ChannelDef, ChannelResult, ParamDef } from './types';
 
 const fmt = (n: number) => Math.round(n);
+const r = (n: number) => Math.round(n * 100) / 100; // keeps 2 decimals for intermediate values
 
 function safeDiv(a: number, b: number) { return b === 0 ? 0 : a / b; }
 
@@ -33,12 +34,12 @@ const COMMON_PARAMS: ParamDef[] = [
 
 // ─── PPC / Яндекс Директ ─────────────────────────────────────────────────────
 const ppcCalc = (p: Record<string, number>): ChannelResult => {
-  const clicks = fmt(p.impressions * p.ctr / 100);
-  const cost = fmt(clicks * p.cpc);
-  const leads = fmt(clicks * p.site_conv / 100);
-  const clients = fmt(leads * p.sale_conv / 100);
+  const clicks = p.impressions * p.ctr / 100;
+  const cost = clicks * p.cpc;
+  const leads = clicks * p.site_conv / 100;
+  const clients = leads * p.sale_conv / 100;
   const revenue = clients * p.avg_check;
-  const grossProfit = fmt(revenue * p.margin / 100);
+  const grossProfit = revenue * p.margin / 100;
   const netProfit = grossProfit - cost;
   const roi = safeDiv(netProfit, cost);
   const bottleneck = checkBottleneck([
@@ -50,24 +51,24 @@ const ppcCalc = (p: Record<string, number>): ChannelResult => {
     funnel: [
       { label: 'Показы', value: fmt(p.impressions) },
       { label: 'CTR', value: p.ctr, isConversion: true, unit: '%' },
-      { label: 'Клики', value: clicks },
+      { label: 'Клики', value: fmt(clicks) },
       { label: 'Конв. сайта', value: p.site_conv, isConversion: true, unit: '%' },
-      { label: 'Лиды', value: leads },
+      { label: 'Лиды', value: fmt(leads) },
       { label: 'Конв. продажи', value: p.sale_conv, isConversion: true, unit: '%' },
-      { label: 'Клиенты', value: clients },
+      { label: 'Клиенты', value: Math.round(clients * 10) / 10 },
     ],
-    leads, clients, revenue: fmt(revenue), cost, grossProfit, netProfit, cpl: fmt(safeDiv(cost, leads)), cac: fmt(safeDiv(cost, clients)), roi, bottleneck, valid: true,
+    leads, clients, revenue: fmt(revenue), cost: fmt(cost), grossProfit: fmt(grossProfit), netProfit: fmt(netProfit), cpl: fmt(safeDiv(cost, leads)), cac: fmt(safeDiv(cost, clients)), roi, bottleneck, valid: true,
   };
 };
 
 // ─── Таргетированная реклама ──────────────────────────────────────────────────
 const targetingCalc = (p: Record<string, number>): ChannelResult => {
-  const clicks = fmt(p.impressions * p.ctr / 100);
-  const cost = fmt(clicks * p.cpc);
-  const leads = fmt(clicks * p.site_conv / 100);
-  const clients = fmt(leads * p.sale_conv / 100);
+  const clicks = p.impressions * p.ctr / 100;
+  const cost = clicks * p.cpc;
+  const leads = clicks * p.site_conv / 100;
+  const clients = leads * p.sale_conv / 100;
   const revenue = clients * p.avg_check;
-  const grossProfit = fmt(revenue * p.margin / 100);
+  const grossProfit = revenue * p.margin / 100;
   const netProfit = grossProfit - cost;
   const roi = safeDiv(netProfit, cost);
   const bottleneck = checkBottleneck([
@@ -79,24 +80,24 @@ const targetingCalc = (p: Record<string, number>): ChannelResult => {
     funnel: [
       { label: 'Показы', value: fmt(p.impressions) },
       { label: 'CTR', value: p.ctr, isConversion: true, unit: '%' },
-      { label: 'Клики', value: clicks },
+      { label: 'Клики', value: fmt(clicks) },
       { label: 'Конв. сайта', value: p.site_conv, isConversion: true, unit: '%' },
-      { label: 'Лиды', value: leads },
+      { label: 'Лиды', value: fmt(leads) },
       { label: 'Конв. продажи', value: p.sale_conv, isConversion: true, unit: '%' },
-      { label: 'Клиенты', value: clients },
+      { label: 'Клиенты', value: Math.round(clients * 10) / 10 },
     ],
-    leads, clients, revenue: fmt(revenue), cost, grossProfit, netProfit, cpl: fmt(safeDiv(cost, leads)), cac: fmt(safeDiv(cost, clients)), roi, bottleneck, valid: true,
+    leads, clients, revenue: fmt(revenue), cost: fmt(cost), grossProfit: fmt(grossProfit), netProfit: fmt(netProfit), cpl: fmt(safeDiv(cost, leads)), cac: fmt(safeDiv(cost, clients)), roi, bottleneck, valid: true,
   };
 };
 
 // ─── Reels / YouTube / Shorts ─────────────────────────────────────────────────
 const reelsCalc = (p: Record<string, number>): ChannelResult => {
-  const clicks = fmt(p.reach * p.click_rate / 100);
-  const leads = fmt(clicks * p.lead_conv / 100);
-  const clients = fmt(leads * p.sale_conv / 100);
-  const cost = fmt(p.production_cost);
+  const clicks = p.reach * p.click_rate / 100;
+  const leads = clicks * p.lead_conv / 100;
+  const clients = leads * p.sale_conv / 100;
+  const cost = p.production_cost;
   const revenue = clients * p.avg_check;
-  const grossProfit = fmt(revenue * p.margin / 100);
+  const grossProfit = revenue * p.margin / 100;
   const netProfit = grossProfit - cost;
   const roi = safeDiv(netProfit, cost);
   const bottleneck = checkBottleneck([
@@ -108,25 +109,25 @@ const reelsCalc = (p: Record<string, number>): ChannelResult => {
     funnel: [
       { label: 'Охват', value: fmt(p.reach) },
       { label: '% переходов', value: p.click_rate, isConversion: true, unit: '%' },
-      { label: 'Переходы', value: clicks },
+      { label: 'Переходы', value: fmt(clicks) },
       { label: 'Конв. в лид', value: p.lead_conv, isConversion: true, unit: '%' },
-      { label: 'Лиды', value: leads },
+      { label: 'Лиды', value: fmt(leads) },
       { label: 'Конв. продажи', value: p.sale_conv, isConversion: true, unit: '%' },
-      { label: 'Клиенты', value: clients },
+      { label: 'Клиенты', value: Math.round(clients * 10) / 10 },
     ],
-    leads, clients, revenue: fmt(revenue), cost, grossProfit, netProfit, cpl: fmt(safeDiv(cost, leads)), cac: fmt(safeDiv(cost, clients)), roi, bottleneck, valid: true,
+    leads, clients, revenue: fmt(revenue), cost: fmt(cost), grossProfit: fmt(grossProfit), netProfit: fmt(netProfit), cpl: fmt(safeDiv(cost, leads)), cac: fmt(safeDiv(cost, clients)), roi, bottleneck, valid: true,
   };
 };
 
 // ─── Telegram ─────────────────────────────────────────────────────────────────
 const telegramCalc = (p: Record<string, number>): ChannelResult => {
-  const reach = fmt(p.subscribers * p.reach_rate / 100);
-  const clicks = fmt(reach * p.click_rate / 100);
-  const leads = fmt(clicks * p.lead_conv / 100);
-  const clients = fmt(leads * p.sale_conv / 100);
-  const cost = fmt(p.ad_cost);
+  const reach = p.subscribers * p.reach_rate / 100;
+  const clicks = reach * p.click_rate / 100;
+  const leads = clicks * p.lead_conv / 100;
+  const clients = leads * p.sale_conv / 100;
+  const cost = p.ad_cost;
   const revenue = clients * p.avg_check;
-  const grossProfit = fmt(revenue * p.margin / 100);
+  const grossProfit = revenue * p.margin / 100;
   const netProfit = grossProfit - cost;
   const roi = safeDiv(netProfit, cost);
   const bottleneck = checkBottleneck([
@@ -138,25 +139,25 @@ const telegramCalc = (p: Record<string, number>): ChannelResult => {
     funnel: [
       { label: 'Подписчики', value: fmt(p.subscribers) },
       { label: 'Охват поста', value: p.reach_rate, isConversion: true, unit: '%' },
-      { label: 'Охват', value: reach },
+      { label: 'Охват', value: fmt(reach) },
       { label: 'CTR поста', value: p.click_rate, isConversion: true, unit: '%' },
-      { label: 'Клики', value: clicks },
+      { label: 'Клики', value: fmt(clicks) },
       { label: 'Конв. в лид', value: p.lead_conv, isConversion: true, unit: '%' },
-      { label: 'Лиды', value: leads },
+      { label: 'Лиды', value: fmt(leads) },
       { label: 'Конв. продажи', value: p.sale_conv, isConversion: true, unit: '%' },
-      { label: 'Клиенты', value: clients },
+      { label: 'Клиенты', value: Math.round(clients * 10) / 10 },
     ],
-    leads, clients, revenue: fmt(revenue), cost, grossProfit, netProfit, cpl: fmt(safeDiv(cost, leads)), cac: fmt(safeDiv(cost, clients)), roi, bottleneck, valid: true,
+    leads, clients, revenue: fmt(revenue), cost: fmt(cost), grossProfit: fmt(grossProfit), netProfit: fmt(netProfit), cpl: fmt(safeDiv(cost, leads)), cac: fmt(safeDiv(cost, clients)), roi, bottleneck, valid: true,
   };
 };
 
 // ─── SEO / Яндекс Карты ───────────────────────────────────────────────────────
 const seoCalc = (p: Record<string, number>): ChannelResult => {
-  const leads = fmt(p.traffic * p.site_conv / 100);
-  const clients = fmt(leads * p.sale_conv / 100);
-  const cost = fmt(p.monthly_cost);
+  const leads = p.traffic * p.site_conv / 100;
+  const clients = leads * p.sale_conv / 100;
+  const cost = p.monthly_cost;
   const revenue = clients * p.avg_check;
-  const grossProfit = fmt(revenue * p.margin / 100);
+  const grossProfit = revenue * p.margin / 100;
   const netProfit = grossProfit - cost;
   const roi = safeDiv(netProfit, cost);
   const bottleneck = checkBottleneck([
@@ -167,22 +168,22 @@ const seoCalc = (p: Record<string, number>): ChannelResult => {
     funnel: [
       { label: 'Трафик', value: fmt(p.traffic) },
       { label: 'Конв. сайта', value: p.site_conv, isConversion: true, unit: '%' },
-      { label: 'Лиды', value: leads },
+      { label: 'Лиды', value: fmt(leads) },
       { label: 'Конв. продажи', value: p.sale_conv, isConversion: true, unit: '%' },
-      { label: 'Клиенты', value: clients },
+      { label: 'Клиенты', value: Math.round(clients * 10) / 10 },
     ],
-    leads, clients, revenue: fmt(revenue), cost, grossProfit, netProfit, cpl: fmt(safeDiv(cost, leads)), cac: fmt(safeDiv(cost, clients)), roi, bottleneck, valid: true,
+    leads, clients, revenue: fmt(revenue), cost: fmt(cost), grossProfit: fmt(grossProfit), netProfit: fmt(netProfit), cpl: fmt(safeDiv(cost, leads)), cac: fmt(safeDiv(cost, clients)), roi, bottleneck, valid: true,
   };
 };
 
 // ─── Холодные звонки ──────────────────────────────────────────────────────────
 const coldCallsCalc = (p: Record<string, number>): ChannelResult => {
-  const conversations = fmt(p.calls * p.contact_rate / 100);
-  const meetings = fmt(conversations * p.script_conv / 100);
-  const clients = fmt(meetings * p.close_rate / 100);
-  const cost = fmt(p.calls * p.cost_per_call);
+  const conversations = p.calls * p.contact_rate / 100;
+  const meetings = conversations * p.script_conv / 100;
+  const clients = meetings * p.close_rate / 100;
+  const cost = p.calls * p.cost_per_call;
   const revenue = clients * p.avg_check;
-  const grossProfit = fmt(revenue * p.margin / 100);
+  const grossProfit = revenue * p.margin / 100;
   const netProfit = grossProfit - cost;
   const roi = safeDiv(netProfit, cost);
   const bottleneck = checkBottleneck([
@@ -194,25 +195,25 @@ const coldCallsCalc = (p: Record<string, number>): ChannelResult => {
     funnel: [
       { label: 'Звонки', value: fmt(p.calls) },
       { label: 'Дозвон до ЛПР', value: p.contact_rate, isConversion: true, unit: '%' },
-      { label: 'Разговоры', value: conversations },
+      { label: 'Разговоры', value: fmt(conversations) },
       { label: 'Конв. по скрипту', value: p.script_conv, isConversion: true, unit: '%' },
-      { label: 'Встречи / КП', value: meetings },
+      { label: 'Встречи / КП', value: fmt(meetings) },
       { label: 'Конв. в сделку', value: p.close_rate, isConversion: true, unit: '%' },
-      { label: 'Клиенты', value: clients },
+      { label: 'Клиенты', value: Math.round(clients * 10) / 10 },
     ],
-    leads: meetings, clients, revenue: fmt(revenue), cost, grossProfit, netProfit, cpl: fmt(safeDiv(cost, meetings)), cac: fmt(safeDiv(cost, clients)), roi, bottleneck, valid: true,
+    leads: meetings, clients, revenue: fmt(revenue), cost: fmt(cost), grossProfit: fmt(grossProfit), netProfit: fmt(netProfit), cpl: fmt(safeDiv(cost, meetings)), cac: fmt(safeDiv(cost, clients)), roi, bottleneck, valid: true,
   };
 };
 
 // ─── Email-рассылка ───────────────────────────────────────────────────────────
 const emailCalc = (p: Record<string, number>): ChannelResult => {
-  const reads = fmt(p.base_size * p.open_rate / 100);
-  const clicks = fmt(reads * p.click_rate / 100);
-  const leads = fmt(clicks * p.lead_conv / 100);
-  const clients = fmt(leads * p.sale_conv / 100);
-  const cost = fmt(p.base_size * p.cost_per_email);
+  const reads = p.base_size * p.open_rate / 100;
+  const clicks = reads * p.click_rate / 100;
+  const leads = clicks * p.lead_conv / 100;
+  const clients = leads * p.sale_conv / 100;
+  const cost = p.base_size * p.cost_per_email;
   const revenue = clients * p.avg_check;
-  const grossProfit = fmt(revenue * p.margin / 100);
+  const grossProfit = revenue * p.margin / 100;
   const netProfit = grossProfit - cost;
   const roi = safeDiv(netProfit, cost);
   const bottleneck = checkBottleneck([
@@ -224,26 +225,26 @@ const emailCalc = (p: Record<string, number>): ChannelResult => {
     funnel: [
       { label: 'База', value: fmt(p.base_size) },
       { label: 'Открываемость', value: p.open_rate, isConversion: true, unit: '%' },
-      { label: 'Прочитали', value: reads },
+      { label: 'Прочитали', value: fmt(reads) },
       { label: 'CTR письма', value: p.click_rate, isConversion: true, unit: '%' },
-      { label: 'Клики', value: clicks },
+      { label: 'Клики', value: fmt(clicks) },
       { label: 'Конв. в лид', value: p.lead_conv, isConversion: true, unit: '%' },
-      { label: 'Лиды', value: leads },
+      { label: 'Лиды', value: fmt(leads) },
       { label: 'Конв. продажи', value: p.sale_conv, isConversion: true, unit: '%' },
-      { label: 'Клиенты', value: clients },
+      { label: 'Клиенты', value: Math.round(clients * 10) / 10 },
     ],
-    leads, clients, revenue: fmt(revenue), cost, grossProfit, netProfit, cpl: fmt(safeDiv(cost, leads)), cac: fmt(safeDiv(cost, clients)), roi, bottleneck, valid: true,
+    leads, clients, revenue: fmt(revenue), cost: fmt(cost), grossProfit: fmt(grossProfit), netProfit: fmt(netProfit), cpl: fmt(safeDiv(cost, leads)), cac: fmt(safeDiv(cost, clients)), roi, bottleneck, valid: true,
   };
 };
 
 // ─── Партнёры / агенты ────────────────────────────────────────────────────────
 const partnersCalc = (p: Record<string, number>): ChannelResult => {
-  const active = Math.round(p.partners * p.active_rate / 100);
-  const deals = Math.round(active * p.deals_per_active);
-  const clients = fmt(deals * p.payment_conv / 100);
+  const active = p.partners * p.active_rate / 100;
+  const deals = active * p.deals_per_active;
+  const clients = deals * p.payment_conv / 100;
   const revenue = clients * p.avg_check;
-  const cost = fmt(revenue * p.commission_rate / 100);
-  const grossProfit = fmt(revenue * p.margin / 100);
+  const cost = revenue * p.commission_rate / 100;
+  const grossProfit = revenue * p.margin / 100;
   const netProfit = grossProfit - cost;
   const roi = safeDiv(netProfit, cost);
   const bottleneck = checkBottleneck([
@@ -254,26 +255,26 @@ const partnersCalc = (p: Record<string, number>): ChannelResult => {
     funnel: [
       { label: 'Партнёры', value: fmt(p.partners) },
       { label: '% активных', value: p.active_rate, isConversion: true, unit: '%' },
-      { label: 'Активных', value: active },
+      { label: 'Активных', value: Math.round(active * 10) / 10 },
       { label: 'Сделок / партнёр', value: p.deals_per_active, unit: 'шт' },
-      { label: 'Сделки', value: deals },
+      { label: 'Сделки', value: fmt(deals) },
       { label: 'Конв. в оплату', value: p.payment_conv, isConversion: true, unit: '%' },
-      { label: 'Клиенты', value: clients },
+      { label: 'Клиенты', value: Math.round(clients * 10) / 10 },
     ],
-    leads: deals, clients, revenue: fmt(revenue), cost, grossProfit, netProfit, cpl: fmt(safeDiv(cost, deals)), cac: fmt(safeDiv(cost, clients)), roi, bottleneck, valid: true,
+    leads: deals, clients, revenue: fmt(revenue), cost: fmt(cost), grossProfit: fmt(grossProfit), netProfit: fmt(netProfit), cpl: fmt(safeDiv(cost, deals)), cac: fmt(safeDiv(cost, clients)), roi, bottleneck, valid: true,
   };
 };
 
 // ─── Маркетплейсы (упрощённый) ────────────────────────────────────────────────
 const marketplaceCalc = (p: Record<string, number>): ChannelResult => {
-  const purchases = fmt(p.monthly_orders * p.buyout_rate / 100);
+  const purchases = p.monthly_orders * p.buyout_rate / 100;
   const revenue = purchases * p.avg_check;
-  const cogs = fmt(revenue * p.cogs_rate / 100);
-  const mp_fee = fmt(revenue * p.mp_commission / 100);
-  const logistics = fmt(purchases * p.logistics_per_order);
-  const ads_cost = fmt(p.ads_budget);
+  const cogs = revenue * p.cogs_rate / 100;
+  const mp_fee = revenue * p.mp_commission / 100;
+  const logistics = purchases * p.logistics_per_order;
+  const ads_cost = p.ads_budget;
   const cost = cogs + mp_fee + logistics + ads_cost;
-  const netProfit = fmt(revenue) - cost;
+  const netProfit = revenue - cost;
   const grossProfit = netProfit;
   const roi = safeDiv(netProfit, cost);
   const bottleneck = checkBottleneck([
@@ -283,24 +284,24 @@ const marketplaceCalc = (p: Record<string, number>): ChannelResult => {
     funnel: [
       { label: 'Заказы / мес', value: fmt(p.monthly_orders) },
       { label: '% выкупа', value: p.buyout_rate, isConversion: true, unit: '%' },
-      { label: 'Выкупили', value: purchases },
+      { label: 'Выкупили', value: fmt(purchases) },
       { label: 'Выручка', value: fmt(revenue), unit: '₽' },
     ],
-    leads: purchases, clients: purchases, revenue: fmt(revenue), cost, grossProfit, netProfit, cpl: 0, cac: fmt(safeDiv(mp_fee + logistics + ads_cost, purchases)), roi, bottleneck, valid: true,
+    leads: purchases, clients: purchases, revenue: fmt(revenue), cost: fmt(cost), grossProfit: fmt(grossProfit), netProfit: fmt(netProfit), cpl: 0, cac: fmt(safeDiv(mp_fee + logistics + ads_cost, purchases)), roi, bottleneck, valid: true,
   };
 };
 
 // ─── Вебинарная воронка ───────────────────────────────────────────────────────
 const webinarCalc = (p: Record<string, number>): ChannelResult => {
-  const attended = fmt(p.registrations * p.show_rate / 100);
-  const applications = fmt(attended * p.webinar_conv / 100);
-  const clients = fmt(applications * p.payment_conv / 100);
-  const cost = fmt(p.traffic_cost + p.platform_cost);
+  const attended = p.registrations * p.show_rate / 100;
+  const applications = attended * p.webinar_conv / 100;
+  const clients = applications * p.payment_conv / 100;
+  const cost = p.traffic_cost + p.platform_cost;
   const revenue = clients * p.avg_check;
-  const grossProfit = fmt(revenue * p.margin / 100);
+  const grossProfit = revenue * p.margin / 100;
   const netProfit = grossProfit - cost;
   const roi = safeDiv(netProfit, cost);
-  const costPerReg = fmt(safeDiv(p.traffic_cost, p.registrations));  const bottleneck = checkBottleneck([
+  const costPerReg = safeDiv(p.traffic_cost, p.registrations);  const bottleneck = checkBottleneck([
     { label: 'Доходимость', value: p.show_rate, benchmark: 30 },
     { label: 'Конв. на вебинаре', value: p.webinar_conv, benchmark: 7 },
     { label: 'Конв. в оплату', value: p.payment_conv, benchmark: 60 },
@@ -308,40 +309,40 @@ const webinarCalc = (p: Record<string, number>): ChannelResult => {
   return {
     funnel: [
       { label: 'Регистрации', value: fmt(p.registrations) },
-      { label: 'Цена регистрации', value: costPerReg, unit: '₽' },
+      { label: 'Цена регистрации', value: fmt(costPerReg), unit: '₽' },
       { label: 'Доходимость', value: p.show_rate, isConversion: true, unit: '%' },
-      { label: 'Пришли', value: attended },
+      { label: 'Пришли', value: fmt(attended) },
       { label: 'Конв. на вебинаре', value: p.webinar_conv, isConversion: true, unit: '%' },
-      { label: 'Заявки', value: applications },
+      { label: 'Заявки', value: fmt(applications) },
       { label: 'Конв. в оплату', value: p.payment_conv, isConversion: true, unit: '%' },
-      { label: 'Клиенты', value: clients },
+      { label: 'Клиенты', value: Math.round(clients * 10) / 10 },
     ],
-    leads: applications, clients, revenue: fmt(revenue), cost, grossProfit, netProfit, cpl: fmt(safeDiv(cost, applications)), cac: fmt(safeDiv(cost, clients)), roi, bottleneck, valid: true,
+    leads: applications, clients, revenue: fmt(revenue), cost: fmt(cost), grossProfit: fmt(grossProfit), netProfit: fmt(netProfit), cpl: fmt(safeDiv(cost, applications)), cac: fmt(safeDiv(cost, clients)), roi, bottleneck, valid: true,
   };
 };
 
 // ─── Свой канал ───────────────────────────────────────────────────────────────
 const customCalc = (p: Record<string, number>): ChannelResult => {
-  const s1 = fmt(p.stage1_volume);
-  const s2 = fmt(s1 * p.conv1 / 100);
-  const s3 = fmt(s2 * p.conv2 / 100);
-  const clients = fmt(s3 * p.conv3 / 100);
-  const cost = fmt(p.cost);
+  const s1 = p.stage1_volume;
+  const s2 = s1 * p.conv1 / 100;
+  const s3 = s2 * p.conv2 / 100;
+  const clients = s3 * p.conv3 / 100;
+  const cost = p.cost;
   const revenue = clients * p.avg_check;
-  const grossProfit = fmt(revenue * p.margin / 100);
+  const grossProfit = revenue * p.margin / 100;
   const netProfit = grossProfit - cost;
   const roi = safeDiv(netProfit, cost);
   return {
     funnel: [
-      { label: 'Этап 1', value: s1 },
+      { label: 'Этап 1', value: fmt(s1) },
       { label: 'Конв. 1→2', value: p.conv1, isConversion: true, unit: '%' },
-      { label: 'Этап 2', value: s2 },
+      { label: 'Этап 2', value: fmt(s2) },
       { label: 'Конв. 2→3', value: p.conv2, isConversion: true, unit: '%' },
-      { label: 'Этап 3', value: s3 },
+      { label: 'Этап 3', value: fmt(s3) },
       { label: 'Конв. 3→клиент', value: p.conv3, isConversion: true, unit: '%' },
-      { label: 'Клиенты', value: clients },
+      { label: 'Клиенты', value: Math.round(clients * 10) / 10 },
     ],
-    leads: s3, clients, revenue: fmt(revenue), cost, grossProfit, netProfit, cpl: fmt(safeDiv(cost, s3)), cac: fmt(safeDiv(cost, clients)), roi, bottleneck: null, valid: true,
+    leads: s3, clients, revenue: fmt(revenue), cost: fmt(cost), grossProfit: fmt(grossProfit), netProfit: fmt(netProfit), cpl: fmt(safeDiv(cost, s3)), cac: fmt(safeDiv(cost, clients)), roi, bottleneck: null, valid: true,
   };
 };
 
