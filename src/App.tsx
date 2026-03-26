@@ -674,9 +674,34 @@ export default function App() {
                   {/* Expanded content */}
                   {isExpanded && (
                     <div style={{ padding: '20px' }}>
-                      {/* Scenario tabs */}
-                      <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
-                        {SCENARIO_META.map(s => (
+                      {/* Mode toggle + Scenario tabs */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+                        {/* Forecast / From goal switch */}
+                        <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border)', borderRadius: 8, padding: 2, gap: 2 }}>
+                          {(['forecast', 'from_goal'] as const).map(m => (
+                            <button
+                              key={m}
+                              onClick={e => { e.stopPropagation(); setChannelMode(prev => ({ ...prev, [chId]: m })); }}
+                              style={{
+                                fontSize: 11, padding: '4px 12px', borderRadius: 6,
+                                cursor: 'pointer', border: 'none',
+                                background: (channelMode[chId] ?? 'forecast') === m
+                                  ? m === 'from_goal' ? chDef.color : 'rgba(255,255,255,0.12)'
+                                  : 'transparent',
+                                color: (channelMode[chId] ?? 'forecast') === m
+                                  ? m === 'from_goal' ? '#000' : 'var(--text)'
+                                  : 'var(--text3)',
+                                fontWeight: (channelMode[chId] ?? 'forecast') === m ? 700 : 400,
+                                transition: 'all 0.15s',
+                              }}
+                            >
+                              {m === 'forecast' ? 'Прогноз' : 'От цели'}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Scenario tabs — only in forecast mode */}
+                        {(channelMode[chId] ?? 'forecast') === 'forecast' && SCENARIO_META.map(s => (
                           <button
                             key={s.key}
                             className={`stab ${sc === s.key ? `active-${s.key}` : 'inactive'}`}
@@ -690,55 +715,67 @@ export default function App() {
                         ))}
                       </div>
 
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-                        {/* LEFT: Parameters */}
-                        <div>
-                          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-                            Параметры
-                          </div>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                            {chDef.params.filter(p => p.isInput).map(param => (
-                              <ParameterInput
-                                key={param.id}
-                                param={param}
-                                value={params[param.id] ?? param.defaultValue}
-                                onChange={(id, val) => updateParam(chId, sc, id, val)}
-                              />
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* RIGHT: Funnel */}
-                        <div>
-                          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-                            Воронка
-                          </div>
-                          <FunnelViz
-                            stages={result.funnel}
-                            color={chDef.color}
-                            bottleneck={result.bottleneck}
-                          />
-                          {result.bottleneck && (
-                            <div style={{
-                              marginTop: 10, padding: '8px 12px',
-                              background: 'rgba(255,179,0,0.08)',
-                              border: '1px solid rgba(255,179,0,0.25)',
-                              borderRadius: 8, fontSize: 11, color: 'var(--warning)',
-                              display: 'flex', alignItems: 'flex-start', gap: 6,
-                            }}>
-                              <AlertTriangle size={12} style={{ flexShrink: 0, marginTop: 1 }} />
-                              <span>Слабое звено: <strong>{result.bottleneck}</strong>. Улучшение этого показателя даст наибольший прирост.</span>
+                      {/* Content based on mode */}
+                      {(channelMode[chId] ?? 'forecast') === 'from_goal' ? (
+                        <ReverseCalcPanel
+                          chDef={chDef}
+                          params={params}
+                          onParamChange={(id, val) => updateParam(chId, sc, id, val)}
+                          monthGoal={goal}
+                        />
+                      ) : (
+                        <>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+                            {/* LEFT: Parameters */}
+                            <div>
+                              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
+                                Параметры
+                              </div>
+                              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                                {chDef.params.filter(p => p.isInput).map(param => (
+                                  <ParameterInput
+                                    key={param.id}
+                                    param={param}
+                                    value={params[param.id] ?? param.defaultValue}
+                                    onChange={(id, val) => updateParam(chId, sc, id, val)}
+                                  />
+                                ))}
+                              </div>
                             </div>
-                          )}
-                        </div>
-                      </div>
 
-                      {/* Metrics row */}
-                      <MetricsGrid
-                        result={result}
-                        color={chDef.color}
-                        isMarketplace={chId === 'marketplace'}
-                      />
+                            {/* RIGHT: Funnel */}
+                            <div>
+                              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
+                                Воронка
+                              </div>
+                              <FunnelViz
+                                stages={result.funnel}
+                                color={chDef.color}
+                                bottleneck={result.bottleneck}
+                              />
+                              {result.bottleneck && (
+                                <div style={{
+                                  marginTop: 10, padding: '8px 12px',
+                                  background: 'rgba(255,179,0,0.08)',
+                                  border: '1px solid rgba(255,179,0,0.25)',
+                                  borderRadius: 8, fontSize: 11, color: 'var(--warning)',
+                                  display: 'flex', alignItems: 'flex-start', gap: 6,
+                                }}>
+                                  <AlertTriangle size={12} style={{ flexShrink: 0, marginTop: 1 }} />
+                                  <span>Слабое звено: <strong>{result.bottleneck}</strong>. Улучшение этого показателя даст наибольший прирост.</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Metrics row */}
+                          <MetricsGrid
+                            result={result}
+                            color={chDef.color}
+                            isMarketplace={chId === 'marketplace'}
+                          />
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
