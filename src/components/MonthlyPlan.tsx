@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { TrendingUp, RotateCcw, ChevronDown, ChevronUp, GitBranch, Target } from 'lucide-react';
 import { formatRub } from '../utils';
 
@@ -10,25 +10,24 @@ const SEASONAL_WEIGHTS = [0.6, 0.65, 0.85, 0.9, 1.0, 1.05, 0.8, 0.75, 1.0, 1.1, 
 
 function distributeAcross(total: number, count: number, mode: GrowthMode): number[] {
   if (count <= 0) return [];
-  if (count === 1) return [total];
+  if (count === 1) return [Math.round(total)];
   if (mode === 'flat') {
     const base = Math.floor(total / count);
     const rem = total - base * count;
     return Array.from({ length: count }, (_, i) => base + (i < rem ? 1 : 0));
   }
   if (mode === 'linear') {
-    const start = (total / count) * 0.6;
-    const end = (total / count) * 1.4;
-    const step = count > 1 ? (end - start) / (count - 1) : 0;
+    const avg = total / count;
+    const start = avg * 0.6;
+    const end = avg * 1.4;
+    const step = (end - start) / (count - 1);
     const raw = Array.from({ length: count }, (_, i) => start + step * i);
     const rawSum = raw.reduce((a, b) => a + b, 0);
     const scaled = raw.map(v => Math.round(v * total / rawSum));
-    // Fix rounding drift
     const diff = total - scaled.reduce((a, b) => a + b, 0);
     scaled[scaled.length - 1] += diff;
     return scaled;
   }
-  // seasonal — use first `count` seasonal weights
   const weights = SEASONAL_WEIGHTS.slice(0, count);
   const wSum = weights.reduce((a, b) => a + b, 0);
   const scaled = weights.map(w => Math.round(total * w / wSum));
@@ -37,88 +36,111 @@ function distributeAcross(total: number, count: number, mode: GrowthMode): numbe
   return scaled;
 }
 
-interface MonthData { plan: number; fact: number | null; }
+function makePlan(goal: number, mode: GrowthMode) {
+  return distributeAcross(goal, 12, mode).map(plan => ({ plan, fact: null as number | null }));
+}
 
 interface Props {
   yearGoal: number;
   monthlyChannelProfit: number;
 }
 
-export function MonthlyPlan({ yearGoal: initialYearGoal, monthlyChannelProfit }: Props) {
+export function MonthlyPlan({ yearGoal, monthlyChannelProfit }: Props) {
   const [growthMode, setGrowthMode] = useState<GrowthMode>('linear');
   const [missMode, setMissMode] = useState<MissMode>('redistribute');
-  const [effectiveYearGoal, setEffectiveYearGoal] = useState(initialYearGoal);
   const [expanded, setExpanded] = useState(true);
+  const [months, setMonths] = useState(() => makePlan(yearGoal, 'linear'));
+  const [goalOverride, setGoalOverride] = useState<number | null>(null); // for reduce_goal mode
   const currentMonth = new Date().getMonth();
 
-  const initMonths = (goal: number, mode: GrowthMode): MonthData[] => {
-    const plans = distributeAcross(goal, 12, mode);
-    return plans.map((plan) => ({ plan, fact: null }));
-  };
-
-  const [months, setMonths] = useState<MonthData[]>(() => initMonths(initialYearGoal, 'linear'));
+  // FIX 1: Sync months when yearGoal prop changes (user changes goal in Step 1)
+  useEffect(() => {
+    setGoalOverride(null);
+    setMonths(prev => {
+      // Preserve existing facts, only recalculate plans
+      const hasFacts = prev.some(m => m.fact !== null);
+      if (!hasFacts) return makePlan(yearGoal, growthMode);
+      // If there are facts already, redistribute remaining from current month
+      const doneFact = prev.slice(0, currentMonth).reduce((s, m) => s + (m.fact ?? m.plan), 0);
+      const remaining = yearGoal - doneFact;
+      const futurePlans = distributeAcross(Math.max(0, remaining), 12 - currentMonth, growthMode);
+      return prev.map((m, i) =>
+        i < currentMonth ? m : { ...m, plan: futurePlans[i - currentMonth] ?? m.plan }
+      );
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [yearGoal]);
 
   const applyMode = (mode: GrowthMode) => {
     setGrowthMode(mode);
-    // Redistribute only future months keeping past facts intact
+    setGoalOverride(null);
     setMonths(prev => {
-      const pastFact = prev.slice(0, currentMonth).reduce((s, m) => s + (m.fact ?? m.plan), 0);
-      const remaining = effectiveYearGoal - pastFact;
-      const futurePlans = distributeAcross(remaining, 12 - currentMonth, mode);
-      return prev.map((m, i) => i < currentMonth ? m : { ...m, plan: futurePlans[i - currentMonth] ?? m.plan });
+      const doneFact = prev.slice(0, currentMonth).reduce((s, m) => s + (m.fact ?? m.plan), 0);
+      const remaining = yearGoal - doneFact;
+      const futurePlans = distributeAcross(Math.max(0, remaining), 12 - currentMonth, mode);
+      return prev.map((m, i) =>
+        i < currentMonth ? m : { ...m, plan: futurePlans[i - currentMonth] ?? m.plan }
+      );
     });
   };
 
-  const updateFact = (idx: number, rawValue: string) => {
-    const value = rawValue === '' ? null : (Number(rawValue) || 0);
+  // FIX 2: Separate updateFact from any secondary state setter inside setMonths updater
+  const updateFact = useCallback((idx: number, rawValue: string) => {
+    const parsed = rawValue === '' ? null : parseFloat(rawValue);
+    const value = (parsed !== null && !isNaN(parsed)) ? parsed : (rawValue === '' ? null : 0);
+
     setMonths(prev => {
       const updated = prev.map((m, i) => i === idx ? { ...m, fact: value } : m);
+      if (value === null) return updated;
 
-      const completedFact = updated
-        .slice(0, idx + 1)
-        .reduce((s, m) => s + (m.fact ?? 0), 0);
-      const completedPlan = updated
-        .slice(0, idx + 1)
-        .reduce((s, m) => s + m.plan, 0);
-      const gap = completedPlan - completedFact; // positive = невыполнение
-
+      const completedFact = updated.slice(0, idx + 1).reduce((s, m) => s + (m.fact ?? 0), 0);
+      const completedPlan = updated.slice(0, idx + 1).reduce((s, m) => s + m.plan, 0);
+      const gap = completedPlan - completedFact;
       const futureCount = 12 - (idx + 1);
-      if (futureCount <= 0) return updated;
 
-      if (missMode === 'redistribute' && gap !== 0) {
-        // Keep year goal, redistribute gap across future months
-        const currentFuturePlans = updated.slice(idx + 1).map(m => m.plan);
-        const currentFutureTotal = currentFuturePlans.reduce((a, b) => a + b, 0);
+      if (futureCount <= 0 || gap === 0) return updated;
+
+      if (missMode === 'redistribute') {
+        const currentFutureTotal = updated.slice(idx + 1).reduce((s, m) => s + m.plan, 0);
         const newFutureTotal = currentFutureTotal + gap;
         if (newFutureTotal > 0) {
-          const newFuturePlans = distributeAcross(newFutureTotal, futureCount, growthMode);
+          const newPlans = distributeAcross(newFutureTotal, futureCount, growthMode);
           return updated.map((m, i) =>
-            i > idx ? { ...m, plan: newFuturePlans[i - (idx + 1)] } : m
+            i > idx ? { ...m, plan: newPlans[i - (idx + 1)] } : m
           );
         }
-      } else if (missMode === 'reduce_goal' && gap !== 0) {
-        // Reduce effective year goal, keep future months unchanged
-        const newGoal = effectiveYearGoal - gap;
-        setEffectiveYearGoal(newGoal);
       }
-
+      // reduce_goal: plans don't change, we just track the goal offset
       return updated;
     });
+
+    // FIX 2b: For reduce_goal, update goalOverride outside setMonths
+    if (missMode === 'reduce_goal' && value !== null) {
+      setMonths(prev => {
+        const completedFact = prev.map((m, i) => i === idx ? { ...m, fact: value } : m)
+          .slice(0, idx + 1).reduce((s, m) => s + (m.fact ?? 0), 0);
+        const completedPlan = prev.slice(0, idx + 1).reduce((s, m) => s + m.plan, 0);
+        const gap = completedPlan - completedFact;
+        setGoalOverride(yearGoal - gap);
+        return prev;
+      });
+    }
+  }, [missMode, growthMode, yearGoal]);
+
+  const reset = () => {
+    setGoalOverride(null);
+    setMonths(makePlan(yearGoal, growthMode));
   };
 
-  const resetFacts = () => {
-    setEffectiveYearGoal(initialYearGoal);
-    setMonths(initMonths(initialYearGoal, growthMode));
-  };
+  const effectiveGoal = goalOverride ?? yearGoal;
 
   const stats = useMemo(() => {
-    const pastMonths = months.filter(m => m.fact !== null);
-    const totalFact = pastMonths.reduce((s, m) => s + (m.fact ?? 0), 0);
-    const pastPlanSum = pastMonths.reduce((s, m) => s + m.plan, 0);
-    const pctDone = pastPlanSum > 0 ? totalFact / pastPlanSum : 1;
-    const remainingPlan = months.slice(currentMonth).reduce((s, m) => s + m.plan, 0);
-    const totalPlanSum = months.reduce((s, m) => s + m.plan, 0);
-    return { totalFact, totalPlanSum, pctDone, remainingPlan };
+    const withFact = months.filter(m => m.fact !== null);
+    const totalFact = withFact.reduce((s, m) => s + m.fact!, 0);
+    const planForFact = withFact.reduce((s, m) => s + m.plan, 0);
+    const pct = planForFact > 0 ? totalFact / planForFact : 1;
+    const remaining = months.slice(currentMonth).reduce((s, m) => s + m.plan, 0);
+    return { totalFact, pct, remaining };
   }, [months, currentMonth]);
 
   const maxVal = Math.max(...months.map(m => Math.max(m.plan, m.fact ?? 0)), 1);
@@ -134,17 +156,17 @@ export function MonthlyPlan({ yearGoal: initialYearGoal, monthlyChannelProfit }:
           <TrendingUp size={16} style={{ color: 'var(--cyan)' }} />
           <span style={{ fontWeight: 700, fontSize: 14 }}>Месячная декомпозиция</span>
           <span style={{ fontSize: 11, color: 'var(--text3)', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', borderRadius: 4, padding: '1px 8px' }}>
-            {formatRub(effectiveYearGoal, true)} / год
-            {effectiveYearGoal !== initialYearGoal && (
+            {formatRub(effectiveGoal, true)} / год
+            {goalOverride !== null && goalOverride !== yearGoal && (
               <span style={{ color: 'var(--danger)', marginLeft: 4 }}>
-                ({formatRub(effectiveYearGoal - initialYearGoal, true)})
+                ({formatRub(goalOverride - yearGoal, true)})
               </span>
             )}
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: stats.pctDone >= 1 ? 'var(--success)' : stats.pctDone >= 0.8 ? 'var(--warning)' : 'var(--danger)' }}>
-            {months.some(m => m.fact !== null) ? `${(stats.pctDone * 100).toFixed(0)}% выполнено` : 'Заполни факт'}
+          <span style={{ fontSize: 12, fontWeight: 700, color: stats.pct >= 1 ? 'var(--success)' : stats.pct >= 0.8 ? 'var(--warning)' : 'var(--danger)' }}>
+            {months.some(m => m.fact !== null) ? `${(stats.pct * 100).toFixed(0)}% выполнено` : 'Введи факт'}
           </span>
           {expanded ? <ChevronUp size={14} style={{ color: 'var(--text3)' }} /> : <ChevronDown size={14} style={{ color: 'var(--text3)' }} />}
         </div>
@@ -152,14 +174,10 @@ export function MonthlyPlan({ yearGoal: initialYearGoal, monthlyChannelProfit }:
 
       {expanded && (
         <div style={{ padding: '20px' }}>
-
-          {/* Controls row */}
-          <div style={{ display: 'flex', gap: 20, marginBottom: 20, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-            {/* Growth mode */}
+          {/* Controls */}
+          <div style={{ display: 'flex', gap: 20, marginBottom: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
             <div>
-              <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
-                Распределение
-              </div>
+              <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Распределение</div>
               <div style={{ display: 'flex', gap: 6 }}>
                 {([['flat', 'Равномерно'], ['linear', 'Нарастающий'], ['seasonal', 'Сезонный']] as [GrowthMode, string][]).map(([m, label]) => (
                   <button key={m} onClick={() => applyMode(m)} style={{
@@ -173,11 +191,8 @@ export function MonthlyPlan({ yearGoal: initialYearGoal, monthlyChannelProfit }:
               </div>
             </div>
 
-            {/* Miss mode */}
             <div>
-              <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
-                При невыполнении плана
-              </div>
+              <div style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>При невыполнении</div>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button onClick={() => setMissMode('redistribute')} style={{
                   fontSize: 11, padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
@@ -187,7 +202,7 @@ export function MonthlyPlan({ yearGoal: initialYearGoal, monthlyChannelProfit }:
                   fontWeight: missMode === 'redistribute' ? 600 : 400,
                   display: 'flex', alignItems: 'center', gap: 5,
                 }}>
-                  <GitBranch size={11} /> Перераспределить на будущие
+                  <GitBranch size={11} /> Перераспределить
                 </button>
                 <button onClick={() => setMissMode('reduce_goal')} style={{
                   fontSize: 11, padding: '4px 10px', borderRadius: 6, cursor: 'pointer',
@@ -197,12 +212,12 @@ export function MonthlyPlan({ yearGoal: initialYearGoal, monthlyChannelProfit }:
                   fontWeight: missMode === 'reduce_goal' ? 600 : 400,
                   display: 'flex', alignItems: 'center', gap: 5,
                 }}>
-                  <Target size={11} /> Снизить годовую цель
+                  <Target size={11} /> Снизить цель
                 </button>
               </div>
             </div>
 
-            <button onClick={resetFacts} style={{
+            <button onClick={reset} style={{
               fontSize: 11, padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)',
               background: 'transparent', color: 'var(--text3)', cursor: 'pointer',
               display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto', alignSelf: 'flex-end',
@@ -211,24 +226,20 @@ export function MonthlyPlan({ yearGoal: initialYearGoal, monthlyChannelProfit }:
             </button>
           </div>
 
-          {/* Mode hint */}
-          <div style={{
-            fontSize: 11, color: 'var(--text3)', background: 'rgba(255,255,255,0.02)',
-            border: '1px solid var(--border)', borderRadius: 8,
-            padding: '8px 12px', marginBottom: 16, lineHeight: 1.5,
-          }}>
+          {/* Hint */}
+          <div style={{ fontSize: 11, color: 'var(--text3)', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 12px', marginBottom: 16, lineHeight: 1.5 }}>
             {missMode === 'redistribute'
-              ? 'Перераспределение: если в месяце факт < плана, недостача автоматически прибавляется к будущим месяцам — годовая цель остаётся неизменной.'
-              : 'Снижение цели: если в месяце факт < плана, годовая цель уменьшается на недостачу — будущие месяца не меняются.'}
+              ? 'Недостача за месяц автоматически распределяется на будущие месяцы — годовая цель не меняется.'
+              : 'Недостача за месяц вычитается из годовой цели — планы будущих месяцев не меняются.'}
           </div>
 
-          {/* Summary cards */}
+          {/* Summary */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 20 }}>
             {[
-              { label: 'Годовая цель', value: formatRub(effectiveYearGoal, true), color: effectiveYearGoal < initialYearGoal ? 'var(--danger)' : 'var(--cyan)' },
-              { label: 'Факт (выполнено)', value: formatRub(stats.totalFact, true), color: stats.pctDone >= 1 ? 'var(--success)' : stats.pctDone >= 0.8 ? 'var(--warning)' : 'var(--danger)' },
-              { label: 'Остаток (план)', value: formatRub(stats.remainingPlan, true), color: 'var(--text2)' },
-              { label: 'Расчёт / мес', value: formatRub(monthlyChannelProfit, true), color: 'var(--magenta)' },
+              { label: 'Годовая цель', value: formatRub(effectiveGoal, true), color: goalOverride !== null && goalOverride < yearGoal ? 'var(--danger)' : 'var(--cyan)' },
+              { label: 'Факт (итого)', value: formatRub(stats.totalFact, true), color: stats.pct >= 1 ? 'var(--success)' : stats.pct >= 0.8 ? 'var(--warning)' : stats.totalFact > 0 ? 'var(--danger)' : 'var(--text3)' },
+              { label: 'Остаток (план)', value: formatRub(stats.remaining, true), color: 'var(--text2)' },
+              { label: 'Расчёт канала / мес', value: formatRub(monthlyChannelProfit, true), color: 'var(--magenta)' },
             ].map((s, i) => (
               <div key={i} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px' }}>
                 <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 3 }}>{s.label}</div>
@@ -255,11 +266,8 @@ export function MonthlyPlan({ yearGoal: initialYearGoal, monthlyChannelProfit }:
                     {MONTHS[i]}
                   </div>
 
-                  {/* Bar */}
                   <div style={{ width: '100%', height: 80, display: 'flex', alignItems: 'flex-end', position: 'relative' }}>
-                    {/* Plan bar */}
                     <div style={{ width: '100%', height: planH, background: 'rgba(255,255,255,0.08)', borderRadius: '3px 3px 0 0' }} />
-                    {/* Fact bar overlay */}
                     {hasFact && (
                       <div style={{
                         position: 'absolute', left: 0, bottom: 0, width: '100%',
@@ -276,16 +284,14 @@ export function MonthlyPlan({ yearGoal: initialYearGoal, monthlyChannelProfit }:
                     )}
                   </div>
 
-                  {/* Plan value */}
                   <div style={{ fontSize: 8, color: 'var(--text3)', textAlign: 'center' }}>
                     {formatRub(m.plan, true)}
                   </div>
 
-                  {/* Fact input — available for current and past months */}
                   {i <= currentMonth && (
                     <input
                       type="number"
-                      value={m.fact ?? ''}
+                      value={m.fact !== null ? m.fact : ''}
                       placeholder="факт"
                       onChange={e => updateFact(i, e.target.value)}
                       style={{
@@ -294,7 +300,8 @@ export function MonthlyPlan({ yearGoal: initialYearGoal, monthlyChannelProfit }:
                         borderRadius: 4, color: hasFact ? barColor : 'var(--text3)',
                         fontSize: 9, padding: '2px 4px', textAlign: 'center',
                         outline: 'none', fontFamily: 'Manrope, sans-serif',
-                      }}
+                        MozAppearance: 'textfield',
+                      } as React.CSSProperties}
                     />
                   )}
                 </div>
@@ -306,12 +313,12 @@ export function MonthlyPlan({ yearGoal: initialYearGoal, monthlyChannelProfit }:
           <div style={{ display: 'flex', gap: 16, marginTop: 14, fontSize: 10, color: 'var(--text3)', flexWrap: 'wrap' }}>
             {[
               { color: 'rgba(255,255,255,0.08)', label: 'План' },
-              { color: 'var(--success)', label: 'Факт ≥100%' },
-              { color: 'var(--warning)', label: 'Факт 80–99%' },
-              { color: 'var(--danger)', label: 'Факт <80%' },
+              { color: 'var(--success)', label: '≥100%' },
+              { color: 'var(--warning)', label: '80–99%' },
+              { color: 'var(--danger)', label: '<80%' },
             ].map((l, i) => (
               <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 2, background: l.color, display: 'inline-block', opacity: 0.9 }} />
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: l.color, display: 'inline-block' }} />
                 {l.label}
               </span>
             ))}
