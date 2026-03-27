@@ -248,10 +248,25 @@ export function MonthlyPlan({ yearGoal, monthlyChannelProfit }: Props) {
             ))}
           </div>
 
+          {/* Fact input prompt */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12,
+            padding: '10px 14px', background: 'rgba(0,229,255,0.04)',
+            border: '1px solid rgba(0,229,255,0.15)', borderRadius: 8,
+          }}>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--cyan)', flexShrink: 0 }} />
+            <span style={{ fontSize: 12, color: 'var(--text2)' }}>
+              Введи фактическую прибыль за каждый прошедший месяц в поля ниже —
+              <span style={{ color: 'var(--cyan)', fontWeight: 600 }}> «Факт (итого)»</span> обновится автоматически.
+            </span>
+          </div>
+
           {/* Monthly bars */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 6 }}>
             {months.map((m, i) => {
               const isCurrent = i === currentMonth;
+              const isPast = i < currentMonth;
+              const isEditable = i <= currentMonth;
               const hasFact = m.fact !== null;
               const pct = hasFact ? m.fact! / m.plan : null;
               const barColor = hasFact
@@ -262,20 +277,25 @@ export function MonthlyPlan({ yearGoal, monthlyChannelProfit }: Props) {
 
               return (
                 <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                  <div style={{ fontSize: 9, color: isCurrent ? 'var(--cyan)' : 'var(--text3)', fontWeight: isCurrent ? 700 : 400, textTransform: 'uppercase' }}>
+                  {/* Month label */}
+                  <div style={{
+                    fontSize: 9, fontWeight: isCurrent ? 700 : 400, textTransform: 'uppercase',
+                    color: isCurrent ? 'var(--cyan)' : isPast ? 'var(--text2)' : 'var(--text3)',
+                  }}>
                     {MONTHS[i]}
                   </div>
 
+                  {/* Bar */}
                   <div style={{ width: '100%', height: 80, display: 'flex', alignItems: 'flex-end', position: 'relative' }}>
                     <div style={{ width: '100%', height: planH, background: 'rgba(255,255,255,0.08)', borderRadius: '3px 3px 0 0' }} />
                     {hasFact && (
                       <div style={{
                         position: 'absolute', left: 0, bottom: 0, width: '100%',
                         height: factH, background: barColor, borderRadius: '3px 3px 0 0',
-                        opacity: 0.85, transition: 'height 0.3s ease',
+                        opacity: 0.9, transition: 'height 0.3s ease',
                       }} />
                     )}
-                    {isCurrent && (
+                    {isCurrent && !hasFact && (
                       <div style={{
                         position: 'absolute', top: -4, left: '50%', transform: 'translateX(-50%)',
                         width: 5, height: 5, borderRadius: '50%',
@@ -284,25 +304,43 @@ export function MonthlyPlan({ yearGoal, monthlyChannelProfit }: Props) {
                     )}
                   </div>
 
-                  <div style={{ fontSize: 8, color: 'var(--text3)', textAlign: 'center' }}>
-                    {formatRub(m.plan, true)}
+                  {/* Plan value */}
+                  <div style={{ fontSize: 8, color: 'var(--text3)', textAlign: 'center', lineHeight: 1.2 }}>
+                    план {formatRub(m.plan, true)}
                   </div>
 
-                  {i <= currentMonth && (
-                    <input
-                      type="number"
-                      value={m.fact !== null ? m.fact : ''}
-                      placeholder="факт"
-                      onChange={e => updateFact(i, e.target.value)}
-                      style={{
-                        width: '100%', background: 'rgba(255,255,255,0.04)',
-                        border: `1px solid ${hasFact ? barColor : 'var(--border)'}`,
-                        borderRadius: 4, color: hasFact ? barColor : 'var(--text3)',
-                        fontSize: 9, padding: '2px 4px', textAlign: 'center',
-                        outline: 'none', fontFamily: 'Manrope, sans-serif',
-                        MozAppearance: 'textfield',
-                      } as React.CSSProperties}
-                    />
+                  {/* Fact input — past + current months */}
+                  {isEditable ? (
+                    <div style={{ width: '100%' }}>
+                      <div style={{ fontSize: 8, color: hasFact ? barColor : 'rgba(0,229,255,0.5)', textAlign: 'center', marginBottom: 2, fontWeight: 600 }}>
+                        {hasFact ? `факт` : '↓ факт'}
+                      </div>
+                      <input
+                        type="number"
+                        value={m.fact !== null ? m.fact : ''}
+                        placeholder="0"
+                        onChange={e => updateFact(i, e.target.value)}
+                        style={{
+                          width: '100%',
+                          background: hasFact ? `${barColor}15` : 'rgba(0,229,255,0.05)',
+                          border: `1px solid ${hasFact ? barColor : 'rgba(0,229,255,0.25)'}`,
+                          borderRadius: 4,
+                          color: hasFact ? barColor : 'rgba(255,255,255,0.5)',
+                          fontSize: 9, padding: '3px 4px', textAlign: 'center',
+                          outline: 'none', fontFamily: 'Manrope, sans-serif',
+                          boxSizing: 'border-box',
+                        } as React.CSSProperties}
+                      />
+                      {hasFact && (
+                        <div style={{ fontSize: 7, color: barColor, textAlign: 'center', marginTop: 1, fontWeight: 600 }}>
+                          {pct! >= 1 ? `+${Math.round((pct! - 1) * 100)}%` : `${Math.round((pct! - 1) * 100)}%`}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 8, color: 'var(--text3)', textAlign: 'center' }}>
+                      план
+                    </div>
                   )}
                 </div>
               );
